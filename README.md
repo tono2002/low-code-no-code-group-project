@@ -114,6 +114,26 @@ npx netlify-cli deploy --prod --dir=dist
 | `npm run build`   | Production build into `dist/`.     |
 | `npm run preview` | Preview the production build.      |
 
+## Deploy with Docker
+
+The app ships as a static build served by nginx (see `Dockerfile` + `nginx.conf`). Because
+Vite bakes `VITE_*` vars in at build time, pass them as `--build-arg`s:
+
+```bash
+docker build \
+  --build-arg VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co \
+  --build-arg VITE_SUPABASE_ANON_KEY=YOUR-ANON-KEY \
+  --build-arg VITE_GEMINI_API_KEY= \
+  -t student-marketplace .
+
+docker run -d --name marketplace -p 8080:80 --restart unless-stopped student-marketplace
+```
+
+The app is then on port 8080. Leaving `VITE_GEMINI_API_KEY` empty makes users paste their
+own Gemini key in the Sell UI (recommended for a shared deploy). Put it behind a reverse
+proxy (e.g. Traefik/Caddy/nginx) for a domain + TLS. The nginx config already handles the
+SPA fallback and asset caching.
+
 ## Automation layer (Zapier)
 
 The app emits database events that a set of **Zapier** workflows react to. These Zaps run
