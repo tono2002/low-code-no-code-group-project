@@ -15,7 +15,7 @@ services:
     # labels are needed — same pattern as the other apps on the host.
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.marketplace.rule=Host(`${MARKETPLACE_DOMAIN}`)"
+      - "traefik.http.routers.marketplace.rule=Host(`${MARKETPLACE_DOMAIN}`) || Host(`${MARKETPLACE_DOMAIN_ALT:-marketplace.srv1487908.hstgr.cloud}`)"
       - "traefik.http.routers.marketplace.entrypoints=websecure"
       - "traefik.http.routers.marketplace.tls.certresolver=letsencrypt"
       - "traefik.http.services.marketplace.loadbalancer.server.port=80"
