@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, PHOTO_BUCKET, CATEGORIES } from '../supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { generateListingFromImage, GEMINI_MODEL } from '../lib/gemini'
+import { generateListingFromImage, GEMINI_MODELS, DEFAULT_GEMINI_MODEL } from '../lib/gemini'
 import Header from '../components/Header'
 
 const DEFAULT_GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
@@ -15,6 +15,8 @@ export default function Sell() {
   const [previewUrl, setPreviewUrl] = useState('')
   const [imageUrl, setImageUrl]     = useState('')
   const [geminiKey, setGeminiKey]   = useState(DEFAULT_GEMINI_KEY)
+  const [model, setModel]           = useState(DEFAULT_GEMINI_MODEL)
+  const [modelNote, setModelNote]   = useState('')
   const [form, setForm] = useState({
     title: '', description: '', category: CATEGORIES[0], price_min: '', price_max: '',
   })
@@ -56,10 +58,15 @@ export default function Sell() {
 
   async function handleGenerate() {
     setError('')
+    setModelNote('')
     if (!imageFile) { setError('Upload a photo first.'); return }
     setGenerating(true)
     try {
-      const result = await generateListingFromImage(imageFile, geminiKey)
+      const result = await generateListingFromImage(imageFile, geminiKey, model)
+      if (result.modelUsed && result.modelUsed !== model) {
+        const used = GEMINI_MODELS.find(m => m.id === result.modelUsed)?.label || result.modelUsed
+        setModelNote(`Your selected model was rate-limited — used ${used} instead.`)
+      }
       setForm({
         title:       result.title       || '',
         description: result.description || '',
@@ -162,22 +169,39 @@ export default function Sell() {
             <div className="sell-block-num">02</div>
             <h3 className="sell-block-title">
               Recognize &amp; estimate price
-              <span className="sell-block-badge">✨ Gemini {GEMINI_MODEL}</span>
+              <span className="sell-block-badge">✨ Gemini</span>
             </h3>
             <p className="sell-block-desc">
               Let AI identify your item from the photo and suggest a fair selling price.
             </p>
 
-            <label className="sell-label">
-              Gemini API key
-              <input
-                type="password"
-                className="sell-input"
-                value={geminiKey}
-                onChange={e => setGeminiKey(e.target.value)}
-                placeholder="Paste a Gemini API key"
-              />
-            </label>
+            <div className="sell-row">
+              <label className="sell-label">
+                Gemini API key
+                <input
+                  type="password"
+                  className="sell-input"
+                  value={geminiKey}
+                  onChange={e => setGeminiKey(e.target.value)}
+                  placeholder="Paste a Gemini API key"
+                />
+              </label>
+              <label className="sell-label">
+                Model
+                <select
+                  className="sell-input"
+                  value={model}
+                  onChange={e => setModel(e.target.value)}
+                >
+                  {GEMINI_MODELS.map(m => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <p className="sell-block-desc" style={{ marginTop: 0 }}>
+              If your model is out of quota it falls back to another automatically.
+            </p>
 
             <button
               type="button"
@@ -190,6 +214,8 @@ export default function Sell() {
                 : <>🔍 Recognize &amp; suggest price</>
               }
             </button>
+
+            {modelNote && <p className="sell-status">ℹ️ {modelNote}</p>}
 
             {recommendation && (
               <div className="sell-estimate">
