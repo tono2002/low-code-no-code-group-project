@@ -341,24 +341,16 @@ h2 {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: #f6f7f9;
   overflow-x: hidden;
-  cursor: none; /* replaced by cursor glow */
 }
 
-/* Re-enable cursor inside interactive elements */
-.lp-root a,
-.lp-root button,
-.lp-root input {
-  cursor: pointer;
-}
-
-/* ─ Cursor spotlight ─────────────────────────────────────── */
-.lp-cursor-glow {
+/* ─ Global cursor glow (rendered by CursorGlow.jsx in App.jsx) ── */
+.cursor-glow {
   position: fixed;
   pointer-events: none;
   width: 520px;
   height: 520px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(99,140,255,0.13) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(99,140,255,0.12) 0%, transparent 70%);
   transform: translate(-50%, -50%);
   z-index: 9999;
   will-change: left, top;
@@ -1063,51 +1055,858 @@ h2 {
   .lp-steps { grid-template-columns: 1fr; }
 }
 
-/* AI recognition + price estimate banner (Sell page) */
-.estimate {
-  margin-top: 4px;
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
-  border-radius: 10px;
-  padding: 14px 16px;
+
+/* ═══════════════════════════════════════════════════════════
+   App pages: Header, Feed, Sell, Auth
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─ Global font for app pages ─ */
+.app-page {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+  background: #f0f2f7;
+}
+
+.app-container {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 36px 32px 80px;
+}
+
+.app-container-narrow {
+  max-width: 680px;
+}
+
+/* ─ Header ─────────────────────────────────────────────────── */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 36px;
+  height: 60px;
+  background: rgba(9, 14, 31, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  letter-spacing: -0.02em;
+  transition: opacity 0.15s;
+}
+.app-brand:hover { opacity: 0.8; }
+
+.app-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-header-sell {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+.app-header-sell:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.app-header-email {
+  font-size: 13px;
+  color: rgba(255,255,255,0.45);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header-logout {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.65);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.app-header-logout:hover {
+  border-color: rgba(255,255,255,0.35);
+  color: #fff;
+}
+
+/* ─ Feed ────────────────────────────────────────────────────── */
+.feed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.feed-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid #e3e6ea;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  cursor: pointer;
+}
+.feed-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.10);
+  border-color: color-mix(in srgb, var(--cc, #2563eb) 30%, #e3e6ea);
+}
+
+.feed-card-glow {
+  position: absolute;
+  bottom: -40px;
+  right: -40px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--cc, #2563eb) 15%, transparent) 0%, transparent 70%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.feed-card:hover .feed-card-glow { opacity: 1; }
+
+.feed-card-img {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #eef0f4;
+}
+.feed-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+.feed-card:hover .feed-card-img img {
+  transform: scale(1.06);
+}
+
+.feed-card-no-img {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.feed-card-chip {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: color-mix(in srgb, var(--cc, #2563eb) 85%, #000);
+  padding: 3px 9px;
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+  letter-spacing: 0.02em;
+}
+
+.feed-card-body {
+  padding: 14px 16px 16px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1;
 }
 
-.estimate-head {
+.feed-card-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1c2024;
+  margin: 0;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.feed-card-desc {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.feed-card-footer {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid #f0f2f5;
+}
+
+.feed-card-price {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--cc, #2563eb);
+  letter-spacing: -0.02em;
+}
+
+.feed-card-view {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+.feed-card:hover .feed-card-view {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Skeleton loading */
+.feed-loading {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+}
+.feed-skeleton {
+  height: 280px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #e8eaed 25%, #f4f5f7 50%, #e8eaed 75%);
+  background-size: 400% 100%;
+  animation: feed-shimmer 1.5s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.1s);
+}
+@keyframes feed-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Empty state */
+.feed-empty {
+  text-align: center;
+  padding: 80px 20px;
+}
+.feed-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+.feed-empty h2 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1c2024;
+  margin: 0 0 8px;
+}
+.feed-empty p {
+  font-size: 15px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* ─ Sell ────────────────────────────────────────────────────── */
+.sell-header {
+  margin-bottom: 28px;
+}
+.sell-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: #1c2024;
+  margin: 0 0 6px;
+  letter-spacing: -0.03em;
+}
+.sell-sub {
+  font-size: 15px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.sell-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sell-block {
+  position: relative;
+  background: #fff;
+  border: 1px solid #e3e6ea;
+  border-radius: 16px;
+  padding: 24px 24px 24px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.sell-block:focus-within {
+  border-color: #93b4ff;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.06);
+}
+
+.sell-block-num {
+  position: absolute;
+  top: 22px;
+  left: -1px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #6366f1);
+  padding: 3px 8px 3px 12px;
+  border-radius: 0 8px 8px 0;
+  letter-spacing: 0.06em;
+}
+
+.sell-block-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1c2024;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sell-block-badge {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6366f1;
+  background: #eef2ff;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* Upload zone */
+.sell-upload-zone {
+  display: block;
+  position: relative;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s, background 0.2s;
+  min-height: 160px;
+}
+.sell-upload-zone:hover,
+.sell-upload-zone:focus-within {
+  border-color: #2563eb;
+  background: #f0f4ff;
+}
+.sell-upload-zone--has-img {
+  border-style: solid;
+  border-color: #2563eb;
+  min-height: unset;
+}
+
+.sell-file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.sell-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px;
+  text-align: center;
+}
+.sell-upload-icon { font-size: 32px; }
+.sell-upload-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+.sell-upload-hint {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.sell-preview-img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  display: block;
+  background: #f8f9fb;
+}
+
+.sell-status {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+.sell-status--ok {
+  color: #059669;
+  font-weight: 600;
+}
+
+/* Form inputs */
+.sell-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.sell-input {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  padding: 10px 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+  width: 100%;
+  color: #1c2024;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.sell-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+}
+
+.sell-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* AI button */
+.sell-ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  background: linear-gradient(135deg, #4f46e5, #2563eb);
+  color: #fff;
+  border: none;
+  padding: 11px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 16px rgba(79,70,229,0.35);
+  align-self: flex-start;
+}
+.sell-ai-btn:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(79,70,229,0.45);
+}
+.sell-ai-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.sell-ai-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: sell-spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes sell-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Actions */
+.sell-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.sell-cancel {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  color: #6b7280;
+  padding: 11px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.sell-cancel:hover {
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+.sell-publish {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 11px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(37,99,235,0.35);
+}
+.sell-publish:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(37,99,235,0.45);
+}
+.sell-publish:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ─ Auth ────────────────────────────────────────────────────── */
+.auth-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #090e1f 0%, #0d1b4b 55%, #1a2980 100%);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+}
+
+.auth-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+}
+.auth-blob-1 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(37,99,235,0.2) 0%, transparent 70%);
+  top: -150px;
+  right: -100px;
+}
+.auth-blob-2 {
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+  bottom: -80px;
+  left: 5%;
+}
+
+.auth-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 36px 32px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+}
+
+.auth-back {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.45);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 20px;
+  display: inline-block;
+  transition: color 0.15s;
+}
+.auth-back:hover { color: rgba(255,255,255,0.8); }
+
+.auth-brand {
+  font-size: 36px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.auth-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 4px;
+  letter-spacing: -0.03em;
+}
+
+.auth-sub {
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  margin: 0 0 24px;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+  background: rgba(0,0,0,0.2);
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.auth-tab--active {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+}
+
+.auth-input {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  padding: 11px 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.07);
+  color: #fff;
+  width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.auth-input::placeholder { color: rgba(255,255,255,0.25); }
+.auth-input:focus {
+  outline: none;
+  border-color: rgba(99,140,255,0.7);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+}
+
+.auth-error  { color: #f87171; font-size: 13px; margin: 0; }
+.auth-notice { color: #34d399; font-size: 13px; margin: 0; }
+
+.auth-submit {
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #fff;
+  border: none;
+  padding: 13px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  transition: opacity 0.2s, transform 0.15s;
+  box-shadow: 0 4px 20px rgba(37,99,235,0.4);
+  margin-top: 4px;
+}
+.auth-submit:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+.auth-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─ Sell: upload buttons & preview ──────────────────────────── */
+.sell-block-desc {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.sell-upload-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sell-upload-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.sell-upload-btn:hover {
+  border-color: #2563eb;
+  background: #eff4ff;
+  color: #2563eb;
+}
+.sell-upload-btn--secondary {
+  background: transparent;
+}
+
+.sell-preview-wrap {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+}
+.sell-preview-replace {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.2s;
+}
+.sell-preview-replace:hover { background: rgba(0,0,0,0.8); }
+
+/* ─ Sell: AI estimate card ───────────────────────────────────── */
+.sell-estimate {
+  background: linear-gradient(135deg, #eff4ff, #f0f2ff);
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
-.estimate-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--primary);
+.sell-estimate-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sell-estimate-tag {
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.08em;
+  color: #2563eb;
+  background: #dbeafe;
+  padding: 2px 8px;
+  border-radius: 999px;
 }
 
-.estimate-head strong {
+.sell-estimate-item {
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 15px;
+  font-weight: 700;
+  color: #1c2024;
 }
 
-.estimate-price {
-  font-size: 15px;
+.sell-estimate-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: #374151;
 }
 
-.estimate-price strong {
-  font-size: 20px;
-  color: var(--primary);
+.sell-estimate-price {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: #2563eb;
 }
 
-.estimate-reason {
-  margin: 0;
+.sell-estimate-range {
   font-size: 13px;
+  color: #6b7280;
 }
 
-.estimate-hint {
-  margin: 2px 0 0;
+.sell-estimate-reason {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.sell-estimate-hint {
   font-size: 12px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+/* ─ Responsive (app pages) ──────────────────────────────────── */
+@media (max-width: 640px) {
+  .app-header { padding: 0 16px; }
+  .app-header-email { display: none; }
+  .app-container { padding: 24px 16px 60px; }
+  .sell-block { padding: 20px 16px 20px 28px; }
+  .sell-row { grid-template-columns: 1fr; }
+  .sell-upload-buttons { grid-template-columns: 1fr; }
 }

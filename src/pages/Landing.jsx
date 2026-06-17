@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+// CursorGlow is rendered globally by App.jsx — not here.
+
 const HERO_CARDS = [
   {
     title: 'MacBook Pro 13"',
@@ -167,33 +169,6 @@ function TiltCard({ children, className = '', style = {} }) {
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function Landing() {
   const navigate = useNavigate()
-  const glowRef = useRef(null)
-
-  // Cursor glow
-  useEffect(() => {
-    const el = glowRef.current
-    if (!el) return
-    let fx = 0, fy = 0
-    let tx = 0, ty = 0
-    let raf
-
-    const onMove = e => { tx = e.clientX; ty = e.clientY }
-    window.addEventListener('mousemove', onMove)
-
-    const animate = () => {
-      fx += (tx - fx) * 0.1
-      fy += (ty - fy) * 0.1
-      el.style.left = fx + 'px'
-      el.style.top = fy + 'px'
-      raf = requestAnimationFrame(animate)
-    }
-    animate()
-
-    return () => {
-      window.removeEventListener('mousemove', onMove)
-      cancelAnimationFrame(raf)
-    }
-  }, [])
 
   // Scroll reveal
   useEffect(() => {
@@ -212,8 +187,6 @@ export default function Landing() {
 
   return (
     <div className="lp-root">
-      {/* Cursor spotlight */}
-      <div ref={glowRef} className="lp-cursor-glow" aria-hidden="true" />
 
       {/* ── Nav ── */}
       <nav className="lp-nav">

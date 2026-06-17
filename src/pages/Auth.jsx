@@ -6,11 +6,11 @@ export default function Auth() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [mode, setMode] = useState(searchParams.get('tab') === 'signup' ? 'signup' : 'login')
-  const [email, setEmail] = useState('')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
+  const [busy, setBusy]         = useState(false)
+  const [error, setError]       = useState('')
+  const [notice, setNotice]     = useState('')
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -26,7 +26,6 @@ export default function Auth() {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
       }
-      // On success the AuthContext listener swaps to the feed automatically.
     } catch (err) {
       setError(err.message || 'Something went wrong.')
     } finally {
@@ -34,58 +33,75 @@ export default function Auth() {
     }
   }
 
-  return (
-    <div className="centered">
-      <div className="card auth-card">
-        <button className="back-link" type="button" onClick={() => navigate('/')}>← Back</button>
-        <h1 className="brand">🎓 Student Marketplace</h1>
-        <p className="muted">Buy and sell with people on campus.</p>
+  function switchMode(m) { setMode(m); setError(''); setNotice('') }
 
-        <div className="tabs">
+  return (
+    <div className="auth-page">
+      {/* Background blobs */}
+      <div className="auth-blob auth-blob-1" aria-hidden="true" />
+      <div className="auth-blob auth-blob-2" aria-hidden="true" />
+
+      <div className="auth-card">
+        <button className="auth-back" type="button" onClick={() => navigate('/')}>
+          ← Back
+        </button>
+
+        <div className="auth-brand">🎓</div>
+        <h1 className="auth-title">Student Marketplace</h1>
+        <p className="auth-sub">Buy and sell with people on campus.</p>
+
+        <div className="auth-tabs">
           <button
-            className={mode === 'login' ? 'tab active' : 'tab'}
-            onClick={() => { setMode('login'); setError(''); setNotice('') }}
             type="button"
+            className={`auth-tab ${mode === 'login' ? 'auth-tab--active' : ''}`}
+            onClick={() => switchMode('login')}
           >
             Log in
           </button>
           <button
-            className={mode === 'signup' ? 'tab active' : 'tab'}
-            onClick={() => { setMode('signup'); setError(''); setNotice('') }}
             type="button"
+            className={`auth-tab ${mode === 'signup' ? 'auth-tab--active' : ''}`}
+            onClick={() => switchMode('signup')}
           >
             Sign up
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="form">
-          <label>
+        <form onSubmit={handleSubmit} className="auth-form">
+          <label className="auth-label">
             Email
             <input
               type="email"
+              className="auth-input"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               required
               autoComplete="email"
+              placeholder="you@example.com"
             />
           </label>
-          <label>
+          <label className="auth-label">
             Password
             <input
               type="password"
+              className="auth-input"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
               required
               minLength={6}
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+              placeholder="••••••••"
             />
           </label>
 
-          {error && <p className="error">{error}</p>}
-          {notice && <p className="notice">{notice}</p>}
+          {error  && <p className="auth-error">{error}</p>}
+          {notice && <p className="auth-notice">{notice}</p>}
 
-          <button className="btn primary" type="submit" disabled={busy}>
-            {busy ? 'Please wait…' : mode === 'signup' ? 'Create account' : 'Log in'}
+          <button className="auth-submit" type="submit" disabled={busy}>
+            {busy
+              ? 'Please wait…'
+              : mode === 'signup' ? 'Create account →' : 'Log in →'
+            }
           </button>
         </form>
       </div>

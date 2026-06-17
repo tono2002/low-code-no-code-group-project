@@ -11,34 +11,24 @@ export default function Sell() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  const [imageFile, setImageFile] = useState(null)
+  const [imageFile, setImageFile]   = useState(null)
   const [previewUrl, setPreviewUrl] = useState('')
-  const [imageUrl, setImageUrl] = useState('') // public URL after upload
-
-  const [geminiKey, setGeminiKey] = useState(DEFAULT_GEMINI_KEY)
-
+  const [imageUrl, setImageUrl]     = useState('')
+  const [geminiKey, setGeminiKey]   = useState(DEFAULT_GEMINI_KEY)
   const [form, setForm] = useState({
-    title: '',
-    description: '',
-    category: CATEGORIES[0],
-    price_min: '',
-    price_max: '',
+    title: '', description: '', category: CATEGORIES[0], price_min: '', price_max: '',
   })
-
-  const [recommendation, setRecommendation] = useState(null) // { title, recommended_price, price_min, price_max, price_reason }
-
-  const [uploading, setUploading] = useState(false)
+  const [recommendation, setRecommendation] = useState(null)
+  const [uploading, setUploading]   = useState(false)
   const [generating, setGenerating] = useState(false)
   const [publishing, setPublishing] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError]           = useState('')
 
-  // Hidden file inputs: one opens the device camera, one the file picker.
+  // Separate refs: one triggers camera capture, one opens file picker
   const cameraInput = useRef(null)
   const uploadInput = useRef(null)
 
-  function setField(key, value) {
-    setForm((f) => ({ ...f, [key]: value }))
-  }
+  function setField(key, value) { setForm(f => ({ ...f, [key]: value })) }
 
   async function handleFileChange(e) {
     const file = e.target.files?.[0]
@@ -47,16 +37,13 @@ export default function Sell() {
     setImageFile(file)
     setPreviewUrl(URL.createObjectURL(file))
     setImageUrl('')
-    setRecommendation(null) // a new photo invalidates the old estimate
-
-    // Upload immediately so the public URL is ready for publish.
+    setRecommendation(null)
     setUploading(true)
     try {
-      const ext = file.name.split('.').pop() || 'jpg'
+      const ext  = file.name.split('.').pop() || 'jpg'
       const path = `${user.id}/${Date.now()}.${ext}`
       const { error: upErr } = await supabase.storage
-        .from(PHOTO_BUCKET)
-        .upload(path, file, { cacheControl: '3600', upsert: false })
+        .from(PHOTO_BUCKET).upload(path, file, { cacheControl: '3600', upsert: false })
       if (upErr) throw upErr
       const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path)
       setImageUrl(data.publicUrl)
@@ -69,26 +56,23 @@ export default function Sell() {
 
   async function handleGenerate() {
     setError('')
-    if (!imageFile) {
-      setError('Upload a photo first.')
-      return
-    }
+    if (!imageFile) { setError('Upload a photo first.'); return }
     setGenerating(true)
     try {
       const result = await generateListingFromImage(imageFile, geminiKey)
       setForm({
-        title: result.title || '',
+        title:       result.title       || '',
         description: result.description || '',
-        category: result.category || CATEGORIES[0],
-        price_min: result.price_min ?? '',
-        price_max: result.price_max ?? '',
+        category:    result.category    || CATEGORIES[0],
+        price_min:   result.price_min   ?? '',
+        price_max:   result.price_max   ?? '',
       })
       setRecommendation({
-        title: result.title || '',
+        title:             result.title             || '',
         recommended_price: result.recommended_price ?? '',
-        price_min: result.price_min ?? '',
-        price_max: result.price_max ?? '',
-        price_reason: result.price_reason ?? '',
+        price_min:         result.price_min         ?? '',
+        price_max:         result.price_max         ?? '',
+        price_reason:      result.price_reason      ?? '',
       })
     } catch (err) {
       setError(err.message || 'AI recognition failed.')
@@ -100,20 +84,17 @@ export default function Sell() {
   async function handlePublish(e) {
     e.preventDefault()
     setError('')
-    if (!imageUrl) {
-      setError('Please upload a photo before publishing.')
-      return
-    }
+    if (!imageUrl) { setError('Please upload a photo before publishing.'); return }
     setPublishing(true)
     try {
       const { error: insErr } = await supabase.from('listings').insert({
-        user_id: user.id,
-        title: form.title,
+        user_id:     user.id,
+        title:       form.title,
         description: form.description,
-        category: form.category,
-        price_min: form.price_min === '' ? null : Number(form.price_min),
-        price_max: form.price_max === '' ? null : Number(form.price_max),
-        image_url: imageUrl,
+        category:    form.category,
+        price_min:   form.price_min === '' ? null : Number(form.price_min),
+        price_max:   form.price_max === '' ? null : Number(form.price_max),
+        image_url:   imageUrl,
       })
       if (insErr) throw insErr
       navigate('/')
@@ -125,164 +106,169 @@ export default function Sell() {
   }
 
   return (
-    <div className="page">
+    <div className="app-page">
       <Header showSell={false} />
-      <main className="container narrow">
-        <h2>Sell an item</h2>
+      <main className="app-container app-container-narrow">
 
-        <form onSubmit={handlePublish} className="form sell-form">
-          {/* 1. Photo */}
-          <section className="block">
-            <h3>1. Photo of your item</h3>
-            <p className="muted">Take a photo or upload one — this is the picture buyers see.</p>
-            {/* Hidden inputs; the buttons below trigger them. */}
-            <input
-              ref={cameraInput}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleFileChange}
-              hidden
-            />
-            <input
-              ref={uploadInput}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              hidden
-            />
-            <div className="row">
-              <button type="button" className="btn" onClick={() => cameraInput.current?.click()}>
-                📷 Take photo
-              </button>
-              <button type="button" className="btn" onClick={() => uploadInput.current?.click()}>
-                ⬆️ Upload photo
-              </button>
-            </div>
-            {uploading && <p className="muted">Uploading photo…</p>}
-            {previewUrl && (
-              <div className="preview">
-                <img src={previewUrl} alt="preview" />
-              </div>
-            )}
-            {imageUrl && <p className="notice">Photo uploaded ✓</p>}
-          </section>
+        <div className="sell-header">
+          <h1 className="sell-title">List an item</h1>
+          <p className="sell-sub">Fill in the details below — or let AI do it from a photo.</p>
+        </div>
 
-          {/* 2. AI: recognize + recommend price */}
-          <section className="block">
-            <h3>2. Recognize &amp; estimate price</h3>
-            <p className="muted">
+        <form onSubmit={handlePublish} className="sell-form">
+
+          {/* ── Step 1: Photo ── */}
+          <div className="sell-block">
+            <div className="sell-block-num">01</div>
+            <h3 className="sell-block-title">Photo of your item</h3>
+            <p className="sell-block-desc">Take a photo or upload one — this is the picture buyers see.</p>
+
+            {/* Hidden inputs triggered by buttons below */}
+            <input ref={cameraInput} type="file" accept="image/*" capture="environment"
+              onChange={handleFileChange} hidden />
+            <input ref={uploadInput} type="file" accept="image/*"
+              onChange={handleFileChange} hidden />
+
+            {previewUrl
+              ? (
+                <div className="sell-preview-wrap">
+                  <img src={previewUrl} alt="preview" className="sell-preview-img" />
+                  <button type="button" className="sell-preview-replace"
+                    onClick={() => uploadInput.current?.click()}>
+                    Replace photo
+                  </button>
+                </div>
+              )
+              : (
+                <div className="sell-upload-buttons">
+                  <button type="button" className="sell-upload-btn"
+                    onClick={() => cameraInput.current?.click()}>
+                    <span>📷</span> Take photo
+                  </button>
+                  <button type="button" className="sell-upload-btn sell-upload-btn--secondary"
+                    onClick={() => uploadInput.current?.click()}>
+                    <span>⬆️</span> Upload photo
+                  </button>
+                </div>
+              )
+            }
+
+            {uploading && <p className="sell-status">⏳ Uploading photo…</p>}
+            {imageUrl   && <p className="sell-status sell-status--ok">✓ Photo uploaded</p>}
+          </div>
+
+          {/* ── Step 2: AI ── */}
+          <div className="sell-block">
+            <div className="sell-block-num">02</div>
+            <h3 className="sell-block-title">
+              Recognize &amp; estimate price
+              <span className="sell-block-badge">✨ Gemini {GEMINI_MODEL}</span>
+            </h3>
+            <p className="sell-block-desc">
               Let AI identify your item from the photo and suggest a fair selling price.
             </p>
-            <label>
-              Gemini API key <span className="muted">(model: {GEMINI_MODEL})</span>
+
+            <label className="sell-label">
+              Gemini API key
               <input
                 type="password"
+                className="sell-input"
                 value={geminiKey}
-                onChange={(e) => setGeminiKey(e.target.value)}
+                onChange={e => setGeminiKey(e.target.value)}
                 placeholder="Paste a Gemini API key"
               />
             </label>
+
             <button
               type="button"
-              className="btn"
+              className="sell-ai-btn"
               onClick={handleGenerate}
               disabled={generating || !imageFile}
             >
-              {generating ? 'Scanning photo…' : '🔍 Recognize & suggest price'}
+              {generating
+                ? <><span className="sell-ai-spinner" /> Scanning photo…</>
+                : <>🔍 Recognize &amp; suggest price</>
+              }
             </button>
 
             {recommendation && (
-              <div className="estimate">
-                <div className="estimate-head">
-                  <span className="estimate-label">Recognized</span>
-                  <strong>{recommendation.title || 'Item'}</strong>
+              <div className="sell-estimate">
+                <div className="sell-estimate-row">
+                  <span className="sell-estimate-tag">Recognized</span>
+                  <strong className="sell-estimate-item">{recommendation.title || 'Item'}</strong>
                 </div>
-                <div className="estimate-price">
-                  Recommended:{' '}
-                  <strong>€{recommendation.recommended_price}</strong>
+                <div className="sell-estimate-price-row">
+                  <span>Recommended price:</span>
+                  <strong className="sell-estimate-price">
+                    €{recommendation.recommended_price}
+                  </strong>
                   {recommendation.price_min !== '' && recommendation.price_max !== '' && (
-                    <span className="muted">
-                      {' '}
-                      (range €{recommendation.price_min}–{recommendation.price_max})
+                    <span className="sell-estimate-range">
+                      range €{recommendation.price_min}–{recommendation.price_max}
                     </span>
                   )}
                 </div>
                 {recommendation.price_reason && (
-                  <p className="estimate-reason muted">{recommendation.price_reason}</p>
+                  <p className="sell-estimate-reason">{recommendation.price_reason}</p>
                 )}
-                <p className="muted estimate-hint">
-                  The fields below were filled in for you — edit anything before publishing.
+                <p className="sell-estimate-hint">
+                  Fields below were filled in for you — edit anything before publishing.
                 </p>
               </div>
             )}
-          </section>
+          </div>
 
-          {/* 3. Details */}
-          <section className="block">
-            <h3>3. Details</h3>
-            <label>
+          {/* ── Step 3: Details ── */}
+          <div className="sell-block">
+            <div className="sell-block-num">03</div>
+            <h3 className="sell-block-title">Listing details</h3>
+
+            <label className="sell-label">
               Title
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) => setField('title', e.target.value)}
-                required
-              />
+              <input type="text" className="sell-input" value={form.title}
+                onChange={e => setField('title', e.target.value)} required
+                placeholder="e.g. TI-84 Plus Calculator — Excellent Condition" />
             </label>
-            <label>
+
+            <label className="sell-label">
               Description
-              <textarea
-                rows={3}
-                value={form.description}
-                onChange={(e) => setField('description', e.target.value)}
-              />
+              <textarea className="sell-input" rows={3} value={form.description}
+                onChange={e => setField('description', e.target.value)}
+                placeholder="Describe the item's condition, what's included, etc." />
             </label>
-            <label>
+
+            <label className="sell-label">
               Category
-              <select
-                value={form.category}
-                onChange={(e) => setField('category', e.target.value)}
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
+              <select className="sell-input" value={form.category}
+                onChange={e => setField('category', e.target.value)}>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
-            <div className="row">
-              <label>
+
+            <div className="sell-row">
+              <label className="sell-label">
                 Price min (€)
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price_min}
-                  onChange={(e) => setField('price_min', e.target.value)}
-                />
+                <input type="number" min="0" step="0.01" className="sell-input"
+                  value={form.price_min} onChange={e => setField('price_min', e.target.value)}
+                  placeholder="0" />
               </label>
-              <label>
+              <label className="sell-label">
                 Price max (€)
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price_max}
-                  onChange={(e) => setField('price_max', e.target.value)}
-                />
+                <input type="number" min="0" step="0.01" className="sell-input"
+                  value={form.price_max} onChange={e => setField('price_max', e.target.value)}
+                  placeholder="0" />
               </label>
             </div>
-          </section>
+          </div>
 
-          {error && <p className="error">{error}</p>}
+          {error && <p className="error" style={{ marginTop: 0 }}>{error}</p>}
 
-          <div className="actions">
-            <button type="button" className="btn ghost" onClick={() => navigate('/')}>
+          <div className="sell-actions">
+            <button type="button" className="sell-cancel" onClick={() => navigate('/')}>
               Cancel
             </button>
-            <button type="submit" className="btn primary" disabled={publishing || uploading}>
-              {publishing ? 'Publishing…' : 'Publish'}
+            <button type="submit" className="sell-publish" disabled={publishing || uploading}>
+              {publishing ? 'Publishing…' : 'Publish listing →'}
             </button>
           </div>
         </form>

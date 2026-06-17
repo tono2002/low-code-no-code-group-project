@@ -4,6 +4,7 @@ import Auth from './pages/Auth'
 import Feed from './pages/Feed'
 import Sell from './pages/Sell'
 import Landing from './pages/Landing'
+import CursorGlow from './components/CursorGlow'
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -18,19 +19,25 @@ export default function App() {
 
   if (!user) {
     return (
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Auth />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <>
+        <CursorGlow />
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Auth />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </>
     )
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<Feed />} />
-      <Route path="/sell" element={<Sell />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <CursorGlow />
+      <Routes>
+        <Route path="/" element={<Feed />} />
+        <Route path="/sell" element={<Sell />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   )
 }

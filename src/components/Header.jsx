@@ -7,18 +7,22 @@ export default function Header({ showSell = true }) {
   const { user } = useAuth()
 
   return (
-    <header className="header">
-      <button className="brand-link" type="button" onClick={() => navigate('/')}>
-        🎓 Student Marketplace
+    <header className="app-header">
+      <button className="app-brand" type="button" onClick={() => navigate('/')}>
+        🎓 <span>Student Marketplace</span>
       </button>
-      <div className="header-actions">
+      <div className="app-header-right">
         {showSell && (
-          <button className="btn primary" type="button" onClick={() => navigate('/sell')}>
+          <button className="app-header-sell" type="button" onClick={() => navigate('/sell')}>
             + Sell
           </button>
         )}
-        {user && <span className="muted email">{user.email}</span>}
-        <button className="btn ghost" type="button" onClick={() => supabase.auth.signOut()}>
+        {user && <span className="app-header-email">{user.email}</span>}
+        <button
+          className="app-header-logout"
+          type="button"
+          onClick={() => supabase.auth.signOut()}
+        >
           Log out
         </button>
       </div>
