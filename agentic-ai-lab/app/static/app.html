@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agentic AI Lab — Supply Chain Crew</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3; --muted:#8b949e; --accent:#7c9cf5; --ok:#3fb950; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; line-height:1.55; }
+  header { display:flex; align-items:center; justify-content:space-between;
+           padding:16px 22px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:17px; margin:0; }
+  header .who { color:var(--muted); font-size:13px; }
+  header a { color:var(--muted); font-size:13px; text-decoration:none; }
+  header a:hover { color:var(--fg); }
+  main { max-width:860px; margin:0 auto; padding:26px 22px 80px; }
+  .pitch { color:var(--muted); font-size:14px; margin:0 0 18px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:0 0 7px; }
+  textarea { width:100%; min-height:150px; resize:vertical; padding:13px 15px;
+             border-radius:10px; border:1px solid var(--line); background:#0d1117;
+             color:var(--fg); font-size:14px; font-family:inherit; }
+  textarea:focus { outline:none; border-color:var(--accent); }
+  .row { display:flex; gap:12px; align-items:center; margin-top:14px; }
+  button { padding:11px 20px; border:0; border-radius:9px; background:var(--accent);
+           color:#0d1117; font-weight:600; font-size:15px; cursor:pointer; }
+  button:disabled { opacity:.55; cursor:not-allowed; }
+  .hint { color:var(--muted); font-size:12.5px; }
+  #status { margin-top:22px; display:none; align-items:center; gap:11px; color:var(--muted); font-size:14px; }
+  .spinner { width:18px; height:18px; border:2.5px solid var(--line);
+             border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #result { margin-top:26px; display:none; background:var(--card); border:1px solid var(--line);
+            border-radius:12px; padding:6px 24px 18px; }
+  #result h1,#result h2,#result h3 { line-height:1.3; }
+  #result h1 { font-size:21px; border-bottom:1px solid var(--line); padding-bottom:8px; }
+  #result h2 { font-size:17px; margin-top:24px; }
+  #result code { background:#0d1117; padding:2px 5px; border-radius:5px; font-size:13px; }
+  #result pre { background:#0d1117; padding:12px; border-radius:8px; overflow:auto; }
+  #result a { color:var(--accent); }
+  #result table { border-collapse:collapse; width:100%; }
+  #result th,#result td { border:1px solid var(--line); padding:7px 10px; text-align:left; }
+  .err { color:#f85149; font-size:14px; margin-top:18px; white-space:pre-wrap; display:none; }
+  .badge { display:inline-block; background:#1f2937; color:var(--muted); border:1px solid var(--line);
+           border-radius:999px; padding:2px 10px; font-size:12px; margin-right:6px; }
+  button.secondary { background:#1f2937; color:var(--fg); border:1px solid var(--line); }
+  .divider { display:flex; align-items:center; gap:12px; margin:30px 0 18px; color:var(--muted); font-size:12.5px; text-transform:uppercase; letter-spacing:.06em; }
+  .divider::before, .divider::after { content:""; flex:1; height:1px; background:var(--line); }
+  #dataset { margin-top:18px; }
+  .ds-summary { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  .ds-stat { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:7px 11px; font-size:12.5px; }
+  .ds-stat b { color:var(--fg); } .ds-stat span { color:var(--muted); }
+  table.ds { border-collapse:collapse; width:100%; font-size:12px; }
+  table.ds th, table.ds td { border:1px solid var(--line); padding:5px 8px; text-align:right; white-space:nowrap; }
+  table.ds th { background:#1f2937; color:var(--muted); position:sticky; top:0; }
+  table.ds td:first-child, table.ds td:nth-child(3), table.ds td:nth-child(4) { text-align:left; }
+  .ds-wrap { max-height:340px; overflow:auto; border-radius:8px; }
+  tr.risk-hi td { background:rgba(248,81,73,.12); }
+  tr.risk-md td { background:rgba(245,200,66,.10); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🤖 Agentic AI Lab</h1>
+    <div><span class="who">Supply Chain Crew</span> &nbsp;·&nbsp; <a href="/logout">Log out</a></div>
+  </header>
+  <main>
+    <p class="pitch">
+      <span class="badge">Researcher</span>
+      <span class="badge">+ Web&nbsp;Search</span>
+      <span class="badge">→ Strategist</span>
+      Two AI agents research supply-chain risks and turn them into
+      &ldquo;Agentic AI Opportunities&rdquo; for the Titan case study. Edit the
+      topic below or use the default scenario.
+    </p>
+
+    <label for="topic">Topic / scenario</label>
+    <textarea id="topic">{{DEFAULT_TOPIC}}</textarea>
+
+    <div class="row">
+      <button id="runBtn" onclick="runCrew()">Run crew</button>
+      <span class="hint">Takes ~1–2 minutes. Runs server-side in the container.</span>
+    </div>
+
+    <div class="divider">or — demo with a synthetic dataset</div>
+
+    <div class="row">
+      <button id="genBtn" class="secondary" onclick="genDataset()">🎲 Generate supply-chain dataset</button>
+      <span class="hint">numpy-generated suppliers with risk patterns baked in · reproducible by seed.</span>
+    </div>
+    <div id="dataset"></div>
+
+    <div id="status"><div class="spinner"></div><span id="statusText">Agents are working…</span></div>
+    <div id="err" class="err"></div>
+    <div id="result"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    let currentSeed = null;
+
+    function setBusy(b, label) {
+      $('runBtn').disabled = b; $('genBtn').disabled = b;
+      const az = $('analyzeBtn'); if (az) az.disabled = b;
+      $('statusText').textContent = label || 'Agents are working…';
+      $('status').style.display = b ? 'flex' : 'none';
+    }
+    function showError(msg) { $('err').textContent = msg; $('err').style.display = 'block'; }
+    function showResult(data) {
+      const body = (window.marked ? marked.parse(data.result) : '<pre>'+data.result+'</pre>');
+      const tag = data.backend ? '<div style="color:var(--muted);font-size:12.5px;margin:2px 0 14px">⚙︎ Engine: '+data.backend+'</div>' : '';
+      $('result').innerHTML = tag + body; $('result').style.display = 'block';
+    }
+
+    async function postRun(url, params, label) {
+      $('result').style.display = 'none'; $('err').style.display = 'none';
+      setBusy(true, label);
+      try {
+        const res = await fetch(url, { method:'POST', body:new URLSearchParams(params) });
+        const data = await res.json();
+        if (data.ok) showResult(data); else showError('Error: ' + (data.error || 'unknown'));
+      } catch (e) { showError('Network error: ' + e.message); }
+      finally { setBusy(false); }
+    }
+
+    function runCrew() { postRun('/run', { topic: $('topic').value }, 'Researching & writing…'); }
+    function analyzeDataset() {
+      if (currentSeed == null) return;
+      postRun('/run-dataset', { seed: currentSeed, n: 12 }, 'Analyst is reading the data…');
+    }
+
+    async function genDataset() {
+      $('err').style.display = 'none';
+      setBusy(true, 'Generating dataset…');
+      try {
+        const res = await fetch('/dataset?n=12');
+        const ds = await res.json();
+        currentSeed = ds.seed;
+        renderDataset(ds);
+      } catch (e) { showError('Network error: ' + e.message); }
+      finally { setBusy(false); }
+    }
+
+    function renderDataset(ds) {
+      const s = ds.summary;
+      const stat = (label, val) => '<div class="ds-stat"><b>'+val+'</b> <span>'+label+'</span></div>';
+      const summary = '<div class="ds-summary">'
+        + stat('suppliers', s.suppliers)
+        + stat('total spend', '$'+s.total_annual_spend_musd+'M')
+        + stat('avg on-time', s.avg_on_time_pct+'%')
+        + stat('Tier-2', s.tier2_count)
+        + stat('single-sourced', s.single_source_count)
+        + stat('spend at risk', '$'+s.at_risk_spend_musd+'M')
+        + stat('top risk', s.top_risk_supplier)
+        + '</div>';
+      const head = '<tr><th>Supplier</th><th>Tier</th><th>Region</th><th>Component</th>'
+        + '<th>On-time%</th><th>Lead d</th><th>Lead CoV</th><th>Spend $M</th><th>Single</th><th>Risk</th></tr>';
+      const rows = ds.suppliers.map(x => {
+        const cls = x.risk_score >= 55 ? 'risk-hi' : (x.risk_score >= 38 ? 'risk-md' : '');
+        return '<tr class="'+cls+'"><td>'+x.supplier+'</td><td>T'+x.tier+'</td><td>'+x.region+'</td>'
+          + '<td>'+x.component+'</td><td>'+(x.on_time_rate*100).toFixed(1)+'</td><td>'+x.avg_lead_time_days+'</td>'
+          + '<td>'+x.lead_time_cov+'</td><td>'+x.annual_spend_musd+'</td>'
+          + '<td>'+(x.single_source?'YES':'no')+'</td><td>'+x.risk_score+'</td></tr>';
+      }).join('');
+      $('dataset').innerHTML = summary
+        + '<div class="ds-wrap"><table class="ds">'+head+rows+'</table></div>'
+        + '<div class="row"><button id="analyzeBtn" onclick="analyzeDataset()">🤖 Analyze this dataset with the crew</button>'
+        + '<span class="hint">seed '+ds.seed+' · the Data Analyst → Strategist crew reads these numbers.</span></div>';
+    }
+  </script>
+</body>
+</html>

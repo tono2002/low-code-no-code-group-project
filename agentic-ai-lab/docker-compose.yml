@@ -1,0 +1,44 @@
+services:
+  agentic-ai-lab:
+    build: .
+    container_name: agentic-ai-lab
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_PASSWORD: ${APP_PASSWORD:-agenticai}
+      SECRET_KEY: ${SECRET_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      SERPER_API_KEY: ${SERPER_API_KEY}
+      MODEL: ${MODEL:-gemini/gemini-2.5-flash-lite}
+      # Ollama backup on the VPS (reached over the ollama network, see below).
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama-tz4d-ollama-1:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-ollama_chat/glm-5.1:cloud}
+      GEMINI_TIMEOUT: ${GEMINI_TIMEOUT:-45}
+      # Which engine to try first: ollama (default, fast/uncapped) or gemini.
+      PRIMARY_BACKEND: ${PRIMARY_BACKEND:-ollama}
+    # Join the Ollama project's network for the LLM fallback. The app keeps its
+    # own default network for Traefik; the traefik.docker.network label below
+    # tells Traefik which network to route to (required when multi-homed).
+    networks:
+      - default
+      - ollama
+    # Traefik on this VPS runs in host-network mode with the Docker provider, so
+    # it discovers this container via the Docker API and routes to its bridge IP
+    # on the labeled port. The container only needs its own default network
+    # (created automatically as agentic-ai-lab_default) plus these labels.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=agentic-ai-lab_default"
+      - "traefik.http.routers.agentic-ai-lab.rule=Host(`${APP_DOMAIN:-agenticai.srv1487908.hstgr.cloud}`)"
+      - "traefik.http.routers.agentic-ai-lab.entrypoints=websecure"
+      - "traefik.http.routers.agentic-ai-lab.tls.certresolver=letsencrypt"
+      - "traefik.http.services.agentic-ai-lab.loadbalancer.server.port=8000"
+    # --- Alternative without Traefik: expose the port directly and reach it at
+    # http://<vps-ip>:8010  (comment out the labels block above). ---
+    # ports:
+    #   - "8010:8000"
+
+networks:
+  ollama:
+    name: ollama-tz4d_default
+    external: true
