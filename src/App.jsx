@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext'
 import Auth from './pages/Auth'
 import Feed from './pages/Feed'
 import Sell from './pages/Sell'
+import Landing from './pages/Landing'
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -15,16 +16,16 @@ export default function App() {
     )
   }
 
-  // Logged-out users only ever see the auth page.
   if (!user) {
     return (
       <Routes>
-        <Route path="*" element={<Auth />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Auth />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     )
   }
 
-  // Logged-in users get the app.
   return (
     <Routes>
       <Route path="/" element={<Feed />} />

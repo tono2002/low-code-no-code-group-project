@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 
 export default function Auth() {
-  const [mode, setMode] = useState('login') // 'login' | 'signup'
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [mode, setMode] = useState(searchParams.get('tab') === 'signup' ? 'signup' : 'login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -34,6 +37,7 @@ export default function Auth() {
   return (
     <div className="centered">
       <div className="card auth-card">
+        <button className="back-link" type="button" onClick={() => navigate('/')}>← Back</button>
         <h1 className="brand">🎓 Student Marketplace</h1>
         <p className="muted">Buy and sell with people on campus.</p>
 
