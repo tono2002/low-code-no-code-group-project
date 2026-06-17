@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
 
 function formatPrice(min, max) {
@@ -25,6 +26,7 @@ const CATEGORY_COLORS = {
 }
 
 export default function Feed() {
+  const { user } = useAuth()
   const [listings, setListings] = useState([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState('')
@@ -44,6 +46,31 @@ export default function Feed() {
     return () => { active = false }
   }, [])
 
+  // Sold items drop out of the feed. Filtering in JS (not the query) keeps this
+  // safe before the `status` column exists — undefined status counts as active.
+  const visible = listings.filter(item => item.status !== 'sold')
+
+  // Owner marks their listing sold → it leaves the feed. The optional final price
+  // feeds the price-training automation (Zap 1/4). Requires the status/sold_at/
+  // sale_price columns; until they exist this surfaces a visible error on click.
+  async function markAsSold(item) {
+    setError('')
+    const input = window.prompt('Mark as sold — final sale price in € (optional):', item.price_max ?? '')
+    if (input === null) return // cancelled
+    const trimmed = input.trim()
+    const sale_price = trimmed === '' ? null : Number(trimmed)
+    if (sale_price !== null && Number.isNaN(sale_price)) {
+      setError('Please enter a number for the sale price.')
+      return
+    }
+    const { error: updErr } = await supabase
+      .from('listings')
+      .update({ status: 'sold', sold_at: new Date().toISOString(), sale_price })
+      .eq('id', item.id)
+    if (updErr) { setError(updErr.message); return }
+    setListings(prev => prev.map(l => (l.id === item.id ? { ...l, status: 'sold' } : l)))
+  }
+
   return (
     <div className="app-page">
       <Header />
@@ -59,7 +86,7 @@ export default function Feed() {
 
         {error && <p className="error">{error}</p>}
 
-        {!loading && !error && listings.length === 0 && (
+        {!loading && !error && visible.length === 0 && (
           <div className="feed-empty">
             <div className="feed-empty-icon">🛍️</div>
             <h2>Nothing here yet</h2>
@@ -67,9 +94,9 @@ export default function Feed() {
           </div>
         )}
 
-        {!loading && listings.length > 0 && (
+        {!loading && visible.length > 0 && (
           <div className="feed-grid">
-            {listings.map(item => {
+            {visible.map(item => {
               const color = CATEGORY_COLORS[item.category] || '#6b7280'
               return (
                 <article className="feed-card" key={item.id} style={{ '--cc': color }}>
@@ -89,7 +116,26 @@ export default function Feed() {
                     )}
                     <div className="feed-card-footer">
                       <span className="feed-card-price">{formatPrice(item.price_min, item.price_max)}</span>
-                      <span className="feed-card-view">View →</span>
+                      {user && item.user_id === user.id
+                        ? <button
+                            type="button"
+                            className="feed-card-sold-btn"
+                            onClick={() => markAsSold(item)}
+                            style={{
+                              border: '1px solid var(--cc, #2563eb)',
+                              color: 'var(--cc, #2563eb)',
+                              background: 'transparent',
+                              borderRadius: 8,
+                              padding: '5px 10px',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Mark as sold
+                          </button>
+                        : <span className="feed-card-view">View →</span>
+                      }
                     </div>
                   </div>
                   <div className="feed-card-glow" />

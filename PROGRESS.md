@@ -56,8 +56,19 @@ Running log of what's built, what's next, and how to verify. Pair with `PRD.md` 
       `price_reason`. Verified: Gemini call returns correct JSON (e.g. bike → €280, range
       €200–350 + reason); build clean; HMR applied. *(Full in-browser click-through still
       to do.)*
+- [x] **Sale lifecycle — app side (A1)** (2026-06-17): sold listings drop out of the feed
+      (JS filter, backward-compatible), and owners get a **"Mark as sold"** button that sets
+      `status='sold'`, `sold_at`, and an optional `sale_price`. README documents the six-Zap
+      automation layer + the SQL migration. **Pending:** run the SQL in Supabase to activate
+      (columns `status`/`sold_at`/`sale_price` + AI-price columns + `saved_searches` table).
+      New listings get `status='active'` from the DB default, so publishing is unaffected.
 
 ## In progress / next
+- [ ] **Run the automation-layer SQL in Supabase** (`README.md` → Schema for the automation
+      layer). Until then "Mark as sold" shows an error on click; nothing else breaks.
+- [ ] **A3 wire-up (after SQL):** write `ai_recommended_price` / `ai_price_reason` on the
+      Sell insert so the price-training dataset captures the AI's original estimate.
+- [ ] **A2 saved searches (if time):** needs a category filter on the feed first.
 - [ ] **AI image generation (blocked — needs paid Gemini plan)**: optional "generate image
       with AI from my description" checkbox. The image model `gemini-2.5-flash-image`
       returns **429 quota exceeded** on the current free-tier key, so it's deferred until
