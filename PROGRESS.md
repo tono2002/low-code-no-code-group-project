@@ -47,7 +47,21 @@ Running log of what's built, what's next, and how to verify. Pair with `PRD.md` 
 - [x] **Relocation** (2026-06-17): project moved out of `session 10/` to the sibling
       `group project/marketplace/` folder; temporary preview config in `session 10` reverted.
 
+- [x] **AI recognize & price + camera capture** (2026-06-17): the Sell "Generate with AI"
+      step is now framed as **"Recognize & estimate price"** — Gemini identifies the item
+      from the uploaded photo and returns a single `recommended_price` + a range +
+      `price_reason`, shown in a prominent estimate banner (and prefilled into the fields).
+      Photo step now has **📷 Take photo** (camera `capture`) and **⬆️ Upload photo**
+      buttons. `lib/gemini.js` prompt/return extended with `recommended_price` and
+      `price_reason`. Verified: Gemini call returns correct JSON (e.g. bike → €280, range
+      €200–350 + reason); build clean; HMR applied. *(Full in-browser click-through still
+      to do.)*
+
 ## In progress / next
+- [ ] **AI image generation (blocked — needs paid Gemini plan)**: optional "generate image
+      with AI from my description" checkbox. The image model `gemini-2.5-flash-image`
+      returns **429 quota exceeded** on the current free-tier key, so it's deferred until
+      billing is enabled — then build + verify end-to-end.
 - [ ] **Real-account end-to-end smoke test**: sign up a fresh user in the browser, upload a
       real photo, run Generate with AI against a live Gemini key, publish, and confirm the
       item lands on top of the feed with a real `item-photos` URL.

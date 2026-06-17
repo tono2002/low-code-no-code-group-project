@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, PHOTO_BUCKET, CATEGORIES } from '../supabaseClient'
 import { useAuth } from '../context/AuthContext'
@@ -25,10 +25,16 @@ export default function Sell() {
     price_max: '',
   })
 
+  const [recommendation, setRecommendation] = useState(null) // { title, recommended_price, price_min, price_max, price_reason }
+
   const [uploading, setUploading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [error, setError] = useState('')
+
+  // Hidden file inputs: one opens the device camera, one the file picker.
+  const cameraInput = useRef(null)
+  const uploadInput = useRef(null)
 
   function setField(key, value) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -41,6 +47,7 @@ export default function Sell() {
     setImageFile(file)
     setPreviewUrl(URL.createObjectURL(file))
     setImageUrl('')
+    setRecommendation(null) // a new photo invalidates the old estimate
 
     // Upload immediately so the public URL is ready for publish.
     setUploading(true)
@@ -76,8 +83,15 @@ export default function Sell() {
         price_min: result.price_min ?? '',
         price_max: result.price_max ?? '',
       })
+      setRecommendation({
+        title: result.title || '',
+        recommended_price: result.recommended_price ?? '',
+        price_min: result.price_min ?? '',
+        price_max: result.price_max ?? '',
+        price_reason: result.price_reason ?? '',
+      })
     } catch (err) {
-      setError(err.message || 'AI generation failed.')
+      setError(err.message || 'AI recognition failed.')
     } finally {
       setGenerating(false)
     }
@@ -119,8 +133,32 @@ export default function Sell() {
         <form onSubmit={handlePublish} className="form sell-form">
           {/* 1. Photo */}
           <section className="block">
-            <h3>1. Photo</h3>
-            <input type="file" accept="image/*" onChange={handleFileChange} />
+            <h3>1. Photo of your item</h3>
+            <p className="muted">Take a photo or upload one — this is the picture buyers see.</p>
+            {/* Hidden inputs; the buttons below trigger them. */}
+            <input
+              ref={cameraInput}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileChange}
+              hidden
+            />
+            <input
+              ref={uploadInput}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              hidden
+            />
+            <div className="row">
+              <button type="button" className="btn" onClick={() => cameraInput.current?.click()}>
+                📷 Take photo
+              </button>
+              <button type="button" className="btn" onClick={() => uploadInput.current?.click()}>
+                ⬆️ Upload photo
+              </button>
+            </div>
             {uploading && <p className="muted">Uploading photo…</p>}
             {previewUrl && (
               <div className="preview">
@@ -130,9 +168,12 @@ export default function Sell() {
             {imageUrl && <p className="notice">Photo uploaded ✓</p>}
           </section>
 
-          {/* 2. AI */}
+          {/* 2. AI: recognize + recommend price */}
           <section className="block">
-            <h3>2. Generate with AI</h3>
+            <h3>2. Recognize &amp; estimate price</h3>
+            <p className="muted">
+              Let AI identify your item from the photo and suggest a fair selling price.
+            </p>
             <label>
               Gemini API key <span className="muted">(model: {GEMINI_MODEL})</span>
               <input
@@ -148,8 +189,33 @@ export default function Sell() {
               onClick={handleGenerate}
               disabled={generating || !imageFile}
             >
-              {generating ? 'Analyzing photo…' : '✨ Generate with AI'}
+              {generating ? 'Scanning photo…' : '🔍 Recognize & suggest price'}
             </button>
+
+            {recommendation && (
+              <div className="estimate">
+                <div className="estimate-head">
+                  <span className="estimate-label">Recognized</span>
+                  <strong>{recommendation.title || 'Item'}</strong>
+                </div>
+                <div className="estimate-price">
+                  Recommended:{' '}
+                  <strong>€{recommendation.recommended_price}</strong>
+                  {recommendation.price_min !== '' && recommendation.price_max !== '' && (
+                    <span className="muted">
+                      {' '}
+                      (range €{recommendation.price_min}–{recommendation.price_max})
+                    </span>
+                  )}
+                </div>
+                {recommendation.price_reason && (
+                  <p className="estimate-reason muted">{recommendation.price_reason}</p>
+                )}
+                <p className="muted estimate-hint">
+                  The fields below were filled in for you — edit anything before publishing.
+                </p>
+              </div>
+            )}
           </section>
 
           {/* 3. Details */}

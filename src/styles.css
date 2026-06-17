@@ -1062,3 +1062,52 @@ h2 {
   .lp-step { margin: 0 0 12px; }
   .lp-steps { grid-template-columns: 1fr; }
 }
+
+/* AI recognition + price estimate banner (Sell page) */
+.estimate {
+  margin-top: 4px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.estimate-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.estimate-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.estimate-head strong {
+  font-size: 15px;
+}
+
+.estimate-price {
+  font-size: 15px;
+}
+
+.estimate-price strong {
+  font-size: 20px;
+  color: var(--primary);
+}
+
+.estimate-reason {
+  margin: 0;
+  font-size: 13px;
+}
+
+.estimate-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+}

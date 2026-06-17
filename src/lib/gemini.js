@@ -20,22 +20,25 @@ function fileToBase64(file) {
   })
 }
 
-const PROMPT = `You are helping a student list a second-hand item for sale on a campus marketplace.
-Look at the photo and return ONLY a JSON object with these exact keys:
-{"title","description","category","price_min","price_max"}
+const PROMPT = `You are an appraiser for a student second-hand marketplace.
+Look at the photo, identify exactly what the item is, and recommend a fair resale price.
+Return ONLY a JSON object with these exact keys:
+{"title","description","category","recommended_price","price_min","price_max","price_reason"}
 
 Rules:
-- title: short, specific product name (max ~60 chars).
+- title: the specific item you recognize — include brand/model if visible (max ~60 chars).
 - description: 1-2 friendly sentences about the item and its likely condition.
 - category: pick EXACTLY one of: ${CATEGORIES.join(', ')}.
-- price_min and price_max: realistic second-hand prices in euros as plain numbers (no currency symbol). price_min <= price_max.
+- recommended_price: your single best resale price in euros, as a plain number.
+- price_min and price_max: a sensible range around it (price_min <= recommended_price <= price_max), plain euro numbers, no currency symbol.
+- price_reason: one short sentence explaining the price (condition, brand, demand).
 Return only the JSON, nothing else.`
 
 /**
- * Send an image to Gemini and get back suggested listing fields.
+ * Send an image to Gemini: recognize the item and recommend a price.
  * @param {File|Blob} imageFile
  * @param {string} apiKey
- * @returns {Promise<{title,description,category,price_min,price_max}>}
+ * @returns {Promise<{title,description,category,recommended_price,price_min,price_max,price_reason}>}
  */
 export async function generateListingFromImage(imageFile, apiKey) {
   if (!apiKey) throw new Error('No Gemini API key provided.')
@@ -101,7 +104,9 @@ export async function generateListingFromImage(imageFile, apiKey) {
     title: parsed.title ?? '',
     description: parsed.description ?? '',
     category: CATEGORIES.includes(parsed.category) ? parsed.category : 'Other',
+    recommended_price: parsed.recommended_price ?? '',
     price_min: parsed.price_min ?? '',
     price_max: parsed.price_max ?? '',
+    price_reason: parsed.price_reason ?? '',
   }
 }
