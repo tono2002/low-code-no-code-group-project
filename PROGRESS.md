@@ -62,6 +62,12 @@ Running log of what's built, what's next, and how to verify. Pair with `PRD.md` 
       automation layer + the SQL migration. **Pending:** run the SQL in Supabase to activate
       (columns `status`/`sold_at`/`sale_price` + AI-price columns + `saved_searches` table).
       New listings get `status='active'` from the DB default, so publishing is unaffected.
+- [x] **Live Docker deploy** (2026-06-17): containerized (multi-stage nginx) and deployed to
+      the VPS behind Traefik with auto-TLS at **https://marketplace.srv1487908.hstgr.cloud**.
+      Built on-host (amd64) via `~/marketplace/docker-compose.yml`; mirrors the Spielportal
+      pattern, no collateral to other containers. Verified: HTTPS 200, SPA routes, Supabase
+      config baked in. `VITE_GEMINI_API_KEY` left empty on the live build (users paste their
+      own key) — rebuild with it set to enable AI for everyone.
 
 ## In progress / next
 - [ ] **Run the automation-layer SQL in Supabase** (`README.md` → Schema for the automation
