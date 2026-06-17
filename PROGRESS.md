@@ -66,8 +66,11 @@ Running log of what's built, what's next, and how to verify. Pair with `PRD.md` 
       the VPS behind Traefik with auto-TLS at **https://marketplace.srv1487908.hstgr.cloud**.
       Built on-host (amd64) via `~/marketplace/docker-compose.yml`; mirrors the Spielportal
       pattern, no collateral to other containers. Verified: HTTPS 200, SPA routes, Supabase
-      config baked in. `VITE_GEMINI_API_KEY` left empty on the live build (users paste their
-      own key) — rebuild with it set to enable AI for everyone.
+      config baked in. Now also on a **custom domain: https://marketplace.casparmiebach.me**
+      (A record `marketplace`→VPS IP added in Plesk DNS; Traefik rule serves both the custom
+      domain and the hstgr fallback; Let's Encrypt cert auto-issued). `VITE_GEMINI_API_KEY`
+      is baked into the live build so AI works for everyone — **restrict the key by HTTP
+      referrer** in Google AI Studio since it's in the public bundle.
 
 ## In progress / next
 - [ ] **Run the automation-layer SQL in Supabase** (`README.md` → Schema for the automation
