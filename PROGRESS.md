@@ -37,10 +37,13 @@ Running log of what's built, what's next, and how to verify. Pair with `PRD.md` 
 - [x] **UI smoke test** (2026-06-17): dev server booted, login page renders, no console
       errors. Screenshot confirmed the Auth screen.
 - [x] **Mock data** (2026-06-17): 8 demo listings inserted via the Supabase REST API
-      covering every category — laptop, vacuum, calculator, bicycle, espresso machine,
-      desk + chair, chemistry textbook, lab kit. Owned by a demo account
-      (`demo.seller@example.com`). Placeholder images via loremflickr (swap for real
-      uploads later).
+      covering every category, owned by a demo account (`demo.seller@example.com`).
+- [x] **Mock images fixed** (2026-06-17): replaced the initial loremflickr URLs (which
+      served a *random* image per refresh) with deterministic, hand-verified Unsplash URLs
+      (`?w=600&h=450&fit=crop`) so images are stable and on-topic. Three titles aligned to
+      their photos: Robot Vacuum Cleaner, Desk Calculator, Braun Filter Coffee Machine.
+      NOTE: this is Supabase row data, not in git — re-seed via the same REST PATCH if the
+      table is reset.
 - [x] **Relocation** (2026-06-17): project moved out of `session 10/` to the sibling
       `group project/marketplace/` folder; temporary preview config in `session 10` reverted.
 
