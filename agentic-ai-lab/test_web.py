@@ -34,7 +34,7 @@ check("workspace blocked unauthed", c.get("/workspace").status_code == 401)
 check("wrong password 401", c.post("/login", data={"password": "x"}).status_code == 401)
 r = c.post("/login", data={"password": "agenticai"}, follow_redirects=False)
 check("login 303 + cookie", r.status_code == 303 and "agenticai_session" in r.headers.get("set-cookie", ""))
-r = c.get("/"); check("authed shows dashboard", "Supply Chain Risk Console" in r.text and "Ask the agent" in r.text)
+r = c.get("/"); check("authed shows dashboard", "Supply Chain Risk Console" in r.text and "Ask the Agent" in r.text)
 
 # headers
 r = c.get("/health")
