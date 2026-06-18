@@ -20,7 +20,7 @@ services:
       MODEL: ${MODEL:-gemini/gemini-2.5-flash-lite}
       # Ollama backup on the VPS (reached over the ollama network, see below).
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama-tz4d-ollama-1:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-ollama_chat/glm-5.1:cloud}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-ollama_chat/kimi-k2.7-code:cloud}
       GEMINI_TIMEOUT: ${GEMINI_TIMEOUT:-45}
       # Which engine to try first: ollama (default, fast/uncapped) or gemini.
       PRIMARY_BACKEND: ${PRIMARY_BACKEND:-ollama}

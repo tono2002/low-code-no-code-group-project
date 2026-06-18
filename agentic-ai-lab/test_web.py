@@ -16,8 +16,11 @@ from fastapi.testclient import TestClient
 import app.main as m
 
 # Stub the heavy LLM calls (the crew functions main imported by name).
-m.analyze_workspace = lambda ws, focus="": {"result": "## Risk analysis\nTop risk: X.", "backend": "test"}
+m.analyze_workspace = lambda ws, focus="", deep=False: {"result": "## Risk analysis\nTop risk: X. deep=" + str(deep), "backend": "test"}
 m.run_chat = lambda msg, ws: {"result": "Answer about " + msg[:20], "backend": "test"}
+m.fetch_public_dataset = lambda key: {"source": "public", "label": "Public: test", "seed": 1,
+    "summary": {"rows": 2, "columns": 3, "numeric_cols": 1}, "table": {"columns": ["a"], "rows": [[1]]},
+    "suppliers": None, "text": "t"}
 
 c = TestClient(m.app)
 def check(label, cond):
@@ -43,10 +46,16 @@ w = c.get("/sources/synthetic?n=10").json()
 check("synthetic loads", w["loaded"] and w["source"] == "synthetic" and len(w["table"]["rows"]) == 10)
 check("synthetic has logistics", w["logistics"] and w["logistics"]["summary"]["shipments"] > 0)
 
-# analyze (stubbed) stores result
-r = c.post("/analyze", data={"focus": "only shipping"})
-check("analyze ok", r.json()["ok"] and "Risk analysis" in r.json()["result"])
+# analyze (stubbed) stores result; deep flag passes through
+r = c.post("/analyze", data={"focus": "only shipping", "deep": "false"})
+check("analyze ok (quick)", r.json()["ok"] and "deep=False" in r.json()["result"])
 check("analysis persisted", c.get("/workspace").json()["analysis_md"] is not None)
+r = c.post("/analyze", data={"deep": "true"})
+check("analyze deep flag", "deep=True" in r.json()["result"])
+
+# public dataset (stubbed fetch)
+w = c.get("/sources/url?key=usaid").json()
+check("public dataset loads", w["ok"] and w["workspace"]["source"] == "public")
 
 # chat (stubbed) appends history
 r = c.post("/chat", data={"message": "which supplier is riskiest?"})

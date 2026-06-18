@@ -36,7 +36,7 @@ GEMINI_MODEL = os.environ.get("MODEL", "gemini/gemini-2.5-flash-lite")
 GEMINI_TIMEOUT = int(os.environ.get("GEMINI_TIMEOUT", "45"))  # seconds per call
 # Ollama (on the VPS). Empty OLLAMA_BASE_URL disables it.
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "ollama_chat/glm-5.1:cloud")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "ollama_chat/kimi-k2.7-code:cloud")
 if OLLAMA_BASE_URL:
     # litellm's ollama provider reads this for the endpoint.
     os.environ["OLLAMA_API_BASE"] = OLLAMA_BASE_URL
@@ -282,16 +282,35 @@ def _run_with_fallback(build_crew_fn) -> dict:
 
 
 def _workspace_text(ws: dict) -> str:
-    """Combined dataset + logistics text for the loaded workspace."""
+    """Combined dataset + logistics + ML-forecast text for the loaded workspace."""
     from .logistics import logistics_to_text
+    from .forecast import forecast_to_text
     parts = [ws.get("text", "")]
     if ws.get("logistics"):
         parts.append(logistics_to_text(ws["logistics"]))
+    if ws.get("forecast"):
+        parts.append(forecast_to_text(ws["forecast"]))
     return "\n\n".join(p for p in parts if p)
 
 
-def analyze_workspace(ws: dict, focus: str = "") -> dict:
-    """Run the Analyst → Risk Strategist crew over the loaded workspace."""
+_ANALYSIS_STRUCTURE = (
+    "Structure (markdown): '# Supply Chain Risk & Agentic AI Opportunities'; "
+    "'## Executive Summary' (headline numbers incl. total expected delay cost); "
+    "'## Risk Breakdown' (suppliers AND logistics — flights/ships/ports/weather — with "
+    "cost-at-risk; reference the ML late-delivery model if present); "
+    "'## Agentic AI Opportunities' (3-5, each: agent, autonomous action, data consumed, "
+    "expected $ impact, mapped to specific suppliers/shipments); "
+    "'## Risks & Guardrails'; '## Recommended First Step'. Cite the real numbers and "
+    "identifiers. If this is not a genuine supply-chain dataset, output only OUT_OF_SCOPE."
+)
+
+
+def analyze_workspace(ws: dict, focus: str = "", deep: bool = False) -> dict:
+    """Analyse the loaded workspace.
+
+    deep=True  → Analyst → Risk-Strategist crew (multi-agent, ~1-2 min).
+    deep=False → single-pass briefing (fast, ~30-45s). Default.
+    """
     focus = (focus or "").strip()
     if focus:
         allowed, reason = guard_topic(focus)
@@ -299,7 +318,22 @@ def analyze_workspace(ws: dict, focus: str = "") -> dict:
             return {"result": _REFUSAL, "backend": f"guard:{reason}"}
     data_text = _workspace_text(ws)
     label = ws.get("label", "supply-chain dataset")
-    return _run_with_fallback(lambda llm: _build_risk_crew(llm, data_text, label, focus))
+
+    if deep:
+        return _run_with_fallback(lambda llm: _build_risk_crew(llm, data_text, label, focus))
+
+    system = ("You are a senior supply-chain risk analyst and agentic-AI strategist for "
+              "Titan Manufacturing (industrial-machinery maker; known pains: 28% late "
+              "deliveries, $14M line-stoppage losses, no Tier-2 visibility, +52% expedited "
+              "logistics). Produce a board-ready briefing grounded ONLY in the data.\n\n"
+              + SECURITY_RULES)
+    focus_line = f"\n\nUSER FOCUS (prioritise this scope): {focus}" if focus else ""
+    user = (f"Analyse this {label} and write the briefing.{focus_line}\n\n"
+            f"<<<UNTRUSTED>>>\n{data_text}\n<<<END>>>\n\n" + _ANALYSIS_STRUCTURE)
+    text, backend = _complete(system, user, max_tokens=1500)
+    if "OUT_OF_SCOPE" in text and len(text) < 60:
+        return {"result": _REFUSAL, "backend": "guard:agent"}
+    return {"result": text, "backend": backend}
 
 
 # ── Chat (Q&A + focused re-analysis over the loaded workspace) ───────────────
@@ -307,6 +341,8 @@ def _engine_order():
     """(name, model, extra_kwargs) per engine, primary first."""
     engines = []
     if OLLAMA_BASE_URL:
+        # NB: do NOT pass num_predict — the kimi cloud model returns an empty
+        # response when it's set; without it the model completes fully.
         engines.append((f"Ollama ({OLLAMA_MODEL.split('/')[-1]})", OLLAMA_MODEL,
                         {"api_base": OLLAMA_BASE_URL, "num_retries": 2}))
     engines.append(("Gemini (flash-lite)", GEMINI_MODEL, {"num_retries": 0, "timeout": GEMINI_TIMEOUT}))
@@ -319,11 +355,16 @@ def _complete(system: str, user: str, max_tokens: int = 900) -> tuple:
     """One chat completion with primary→fallback engine. Returns (text, backend)."""
     errors = []
     for i, (name, model, extra) in enumerate(_engine_order()):
+        kw = dict(extra)
+        # The Ollama cloud (kimi) model returns an EMPTY response when
+        # max_tokens (→ num_predict) is set; only cap output on the API models.
+        if not model.startswith("ollama"):
+            kw["max_tokens"] = max_tokens
         try:
             r = litellm.completion(
-                model=model, temperature=0.4, max_tokens=max_tokens, timeout=90,
+                model=model, temperature=0.4, timeout=90,
                 messages=[{"role": "system", "content": system},
-                          {"role": "user", "content": user}], **extra)
+                          {"role": "user", "content": user}], **kw)
             text = _clean(r.choices[0].message.content or "")
             return text, (name if i == 0 else f"{name} — fallback")
         except Exception as exc:

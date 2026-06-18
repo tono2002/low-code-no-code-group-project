@@ -57,16 +57,20 @@
         <button onclick="connectErp('sap')" class="src-btn">🔌 Connect SAP S/4HANA</button>
         <button onclick="connectErp('odoo')" class="src-btn">🔌 Connect Odoo</button>
         <button onclick="connectErp('dynamics')" class="src-btn">🔌 Connect MS Dynamics 365</button>
+        <button onclick="loadUrl('usaid')" class="src-btn">🌐 Public dataset (USAID)</button>
         <button onclick="loadSynthetic()" class="src-btn">🎲 Synthetic dataset</button>
-        <p class="text-[10.5px] text-slate-500 mt-2 leading-snug">ERP connections + logistics signals are simulated (clearly labelled). Uploads are auto-profiled.</p>
+        <p class="text-[10.5px] text-slate-500 mt-2 leading-snug">ERP connections + logistics signals are simulated (clearly labelled). Uploads are auto-profiled; a LightGBM late-risk model runs on load.</p>
       </div>
 
       <div>
         <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-2">Run analysis</div>
         <textarea id="focus" rows="3" placeholder="Optional focus, e.g. 'only the shipping routes'. Leave empty for a full risk analysis."
           class="w-full text-xs bg-ink border border-line rounded-lg p-2.5 focus:outline-none focus:border-accent placeholder:text-slate-600"></textarea>
+        <label class="flex items-center gap-2 text-[11px] text-slate-400 mt-2 select-none cursor-pointer">
+          <input type="checkbox" id="deep" class="accent-indigo-500"> Deep analysis (multi-agent, slower)
+        </label>
         <button id="analyzeBtn" onclick="runAnalysis()" class="mt-2 w-full bg-accent hover:brightness-110 text-white text-sm font-semibold rounded-lg py-2 disabled:opacity-50" disabled>Run risk analysis</button>
-        <div id="analyzeStatus" class="hidden items-center gap-2 text-xs text-slate-400 mt-2"><div class="spin"></div><span>Crew analysing… ~1–2 min</span></div>
+        <div id="analyzeStatus" class="hidden items-center gap-2 text-xs text-slate-400 mt-2"><div class="spin"></div><span id="analyzeStatusText">Analysing… ~30–45s</span></div>
       </div>
     </aside>
 
@@ -139,6 +143,13 @@
       return api('/erp/data?system=' + sys);
     });
   }
+  async function loadUrl(key) {
+    await withLoad(async () => {
+      const d = await api('/sources/url?key=' + key);
+      if (d.error) throw new Error(d.error);
+      return d.workspace;
+    });
+  }
   async function uploadFile() {
     const f = $('fileInput').files[0]; if (!f) return;
     await withLoad(async () => {
@@ -163,9 +174,12 @@
 
   // ---- analysis ----
   async function runAnalysis() {
-    if (busy || !WS?.loaded) return; setBusy(true, 'analyze');
+    if (busy || !WS?.loaded) return;
+    const deep = $('deep').checked;
+    $('analyzeStatusText').textContent = deep ? 'Multi-agent crew analysing… ~1–2 min' : 'Analysing… ~30–45s';
+    setBusy(true, 'analyze');
     try {
-      const fd = new FormData(); fd.append('focus', $('focus').value || '');
+      const fd = new FormData(); fd.append('focus', $('focus').value || ''); fd.append('deep', deep ? 'true' : 'false');
       const d = await api('/analyze', { method:'POST', body: fd });
       if (d.ok) { WS.analysis_md = d.result; WS.backend = d.backend; renderAnalysis(); }
       else alert(d.error || 'Analysis failed');
@@ -210,6 +224,7 @@
     c.appendChild(el(kpiRow()));
     c.appendChild(el(tableCard('Loaded data — ' + (WS.label||''), WS.table, /risk|delay/i)));
     if (WS.logistics) c.appendChild(el(logisticsCard(WS.logistics)));
+    if (WS.forecast) c.appendChild(el(forecastCard(WS.forecast)));
     const a = document.createElement('div'); a.id = 'analysisCard'; c.appendChild(a);
     renderAnalysis();
     // restore chat (shared workspace)
@@ -259,6 +274,23 @@
     return `<div class="card overflow-hidden"><div class="px-3 py-2 text-xs font-semibold text-slate-300 border-b border-line flex justify-between">
       <span>🚚 Logistics risk — simulated in-transit shipments</span><span class="text-slate-500 font-normal">worst lane: ${s.worst_lane}</span></div>
       <div class="overflow-auto max-h-72"><table class="dt">${head}${rows}</table></div></div>`;
+  }
+  function forecastCard(fc) {
+    const preds = fc.predictions.slice(0, 6).map(p => {
+      const cls = p.late_risk_pct >= 50 ? 'text-red-400' : (p.late_risk_pct >= 30 ? 'text-amber-400' : 'text-slate-300');
+      return `<div class="flex justify-between"><span class="text-slate-400 truncate">${p.supplier}</span><span class="${cls} font-semibold">${p.late_risk_pct}%</span></div>`;
+    }).join('');
+    const imp = fc.feature_importance.map(i =>
+      `<div class="flex items-center gap-2 text-[11px]"><span class="w-28 text-slate-400 truncate">${i.feature}</span>
+       <div class="flex-1 h-1.5 bg-panel rounded"><div class="h-1.5 rounded bg-accent" style="width:${i.importance_pct}%"></div></div>
+       <span class="text-slate-500 w-9 text-right">${i.importance_pct}%</span></div>`).join('');
+    return `<div class="card p-4">
+      <div class="text-xs font-semibold text-slate-300 mb-1">🧠 ML late-delivery risk — ${fc.model}</div>
+      <div class="text-[11px] text-amber-500/80 mb-3">⚠︎ trained on simulated history · holdout AUC <b class="text-slate-200">${fc.holdout_auc}</b> · ${fc.train_rows} train rows · ${fc.predicted_late_count} suppliers ≥50% risk</div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div><div class="text-[11px] text-slate-500 mb-1">Predicted late-risk (per supplier)</div><div class="space-y-1 text-xs">${preds}</div></div>
+        <div><div class="text-[11px] text-slate-500 mb-1">Feature importance</div><div class="space-y-1.5">${imp}</div></div>
+      </div></div>`;
   }
   function renderAnalysis() {
     const a = $('analysisCard'); if (!a) return;

@@ -10,11 +10,38 @@ heuristics and logistics layer can use them.
 
 import io
 import re
+import urllib.request
 
 import numpy as np
 import pandas as pd
 
 MAX_ROWS = 50_000          # sample beyond this
+MAX_FETCH_BYTES = 25 * 1024 * 1024
+
+# Whitelisted public datasets (no login, freely downloadable). Whitelist = no SSRF.
+PUBLIC_DATASETS = {
+    "usaid": {
+        "label": "USAID Supply Chain Shipment Pricing",
+        "url": "https://data.usaid.gov/api/views/a3rc-nmf6/rows.csv?accessType=DOWNLOAD",
+        "filename": "usaid_shipment_pricing.csv",
+    },
+}
+
+
+def fetch_public_dataset(key: str) -> dict:
+    """Download a whitelisted public CSV and parse it like an upload."""
+    ds = PUBLIC_DATASETS.get(key)
+    if not ds:
+        raise ValueError("Unknown public dataset")
+    req = urllib.request.Request(ds["url"], headers={"User-Agent": "agentic-ai-lab"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        content = r.read(MAX_FETCH_BYTES + 1)
+    if len(content) > MAX_FETCH_BYTES:
+        raise ValueError("Remote file too large")
+    src = parse_upload(ds["filename"], content)
+    src["source"] = "public"
+    src["label"] = f"Public: {ds['label']}"
+    return src
 DISPLAY_ROWS = 60          # rows sent to the UI table
 LLM_SAMPLE_ROWS = 6        # rows embedded in the LLM text
 LLM_SAMPLE_COLS = 16       # columns embedded in the LLM sample

@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 # Build tools for CrewAI's native deps (tiktoken, etc.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential git && rm -rf /var/lib/apt/lists/*
+    build-essential git libgomp1 && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /srv
 

@@ -22,8 +22,9 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from . import workspace as ws
 from .crew import analyze_workspace, run_chat, MAX_TOPIC_CHARS
-from .sources import synthetic_source, parse_upload
+from .sources import synthetic_source, parse_upload, fetch_public_dataset
 from .logistics import generate_logistics
+from .forecast import run_forecast
 from .erp import generate_erp_data, simulate_connection, SYSTEMS
 from .security import client_ip, constant_time_eq, SlidingWindowLimiter, LoginGuard
 
@@ -137,14 +138,16 @@ def _public_workspace(w: dict) -> dict:
         "connection": w.get("connection"),
         "logistics": {"summary": log.get("summary", {}),
                       "shipments": log.get("shipments", [])} if log else None,
+        "forecast": w.get("forecast"),
         "analysis_md": w.get("analysis_md"), "chat": w.get("chat", []),
     }
 
 
 def _load_source(source: dict) -> dict:
-    """Attach a simulated logistics layer and store as the active workspace."""
+    """Attach simulated logistics + ML risk model, store as the active workspace."""
     seed = source.get("seed")
     source["logistics"] = generate_logistics(seed=seed, suppliers=source.get("suppliers"))
+    source["forecast"] = run_forecast(source.get("suppliers"), seed=seed)
     ws.set_workspace(source)
     return _public_workspace(ws.get_workspace())
 
@@ -179,6 +182,18 @@ async def source_upload(request: Request, file: UploadFile = File(...)):
     return JSONResponse({"ok": True, "workspace": _load_source(source)})
 
 
+@app.get("/sources/url")
+async def source_url(request: Request, key: str = "usaid"):
+    _require_auth(request)
+    if _rate_limited(request):
+        return JSONResponse({"ok": False, "error": "Rate limit — wait a few minutes."}, status_code=429)
+    try:
+        source = await run_in_threadpool(fetch_public_dataset, key)
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": f"Could not load dataset: {exc}"}, status_code=502)
+    return JSONResponse({"ok": True, "workspace": _load_source(source)})
+
+
 @app.get("/erp/connect")
 async def erp_connect(request: Request, system: str = "sap"):
     _require_auth(request)
@@ -196,7 +211,7 @@ async def erp_data(request: Request, system: str = "sap"):
 
 
 @app.post("/analyze")
-async def analyze(request: Request, focus: str = Form("")):
+async def analyze(request: Request, focus: str = Form(""), deep: bool = Form(False)):
     _require_auth(request)
     if _rate_limited(request):
         return JSONResponse({"ok": False, "error": "Rate limit — wait a few minutes."}, status_code=429)
@@ -206,7 +221,7 @@ async def analyze(request: Request, focus: str = Form("")):
         return JSONResponse({"ok": False, "error": f"Focus too long (max {MAX_TOPIC_CHARS} chars)."}, status_code=413)
     async with _crew_lock:
         try:
-            data = await run_in_threadpool(analyze_workspace, ws.get_workspace(), focus)
+            data = await run_in_threadpool(analyze_workspace, ws.get_workspace(), focus, deep)
         except Exception as exc:
             return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
     if not str(data.get("backend", "")).startswith("guard"):
