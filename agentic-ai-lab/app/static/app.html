@@ -58,6 +58,9 @@
   .ds-wrap { max-height:340px; overflow:auto; border-radius:8px; }
   tr.risk-hi td { background:rgba(248,81,73,.12); }
   tr.risk-md td { background:rgba(245,200,66,.10); }
+  .sap-conn { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:12px; font-size:12.5px; }
+  .sap-conn .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--ok); margin-right:7px; box-shadow:0 0 0 3px rgba(63,185,80,.18); vertical-align:middle; }
+  .sap-conn code { color:var(--accent); } .sap-kv { color:var(--muted); } .sap-kv b { color:var(--fg); font-weight:600; }
 </style>
 </head>
 <body>
@@ -91,6 +94,14 @@
     </div>
     <div id="dataset"></div>
 
+    <div class="divider">or — connect to an ERP (SAP · simulated)</div>
+
+    <div class="row">
+      <button id="sapBtn" class="secondary" onclick="connectSap()">🔌 Connect to SAP S/4HANA</button>
+      <span class="hint">simulated OData connection · real SAP field names (LIFNR, EBELN, MATNR…).</span>
+    </div>
+    <div id="erp"></div>
+
     <div id="status"><div class="spinner"></div><span id="statusText">Agents are working…</span></div>
     <div id="err" class="err"></div>
     <div id="result"></div>
@@ -100,10 +111,12 @@
   <script>
     const $ = id => document.getElementById(id);
     let currentSeed = null;
+    let currentErpSeed = null;
 
     function setBusy(b, label) {
-      $('runBtn').disabled = b; $('genBtn').disabled = b;
-      const az = $('analyzeBtn'); if (az) az.disabled = b;
+      ['runBtn','genBtn','sapBtn','analyzeBtn','erpAnalyzeBtn'].forEach(id => {
+        const el = $(id); if (el) el.disabled = b;
+      });
       $('statusText').textContent = label || 'Agents are working…';
       $('status').style.display = b ? 'flex' : 'none';
     }
@@ -168,6 +181,53 @@
         + '<div class="ds-wrap"><table class="ds">'+head+rows+'</table></div>'
         + '<div class="row"><button id="analyzeBtn" onclick="analyzeDataset()">🤖 Analyze this dataset with the crew</button>'
         + '<span class="hint">seed '+ds.seed+' · the Data Analyst → Strategist crew reads these numbers.</span></div>';
+    }
+
+    async function connectSap() {
+      $('err').style.display = 'none'; setBusy(true, 'Connecting to SAP S/4HANA…');
+      try {
+        const conn = await (await fetch('/erp/connect')).json();
+        const d = await (await fetch('/erp/data')).json();
+        currentErpSeed = d.seed;
+        renderErp(conn, d);
+      } catch (e) { showError('Network error: ' + e.message); }
+      finally { setBusy(false); }
+    }
+    function analyzeErp() {
+      if (currentErpSeed == null) return;
+      postRun('/run-erp', { seed: currentErpSeed }, 'Analyst is reading the SAP extract…');
+    }
+
+    function renderErp(conn, d) {
+      const s = d.summary;
+      const panel = '<div class="sap-conn"><span class="dot"></span><b>Connected</b> &nbsp;'
+        + '<span class="sap-kv">System <b>'+conn.system_id+'</b> · Client <b>'+conn.client+'</b> · '
+        + conn.protocol+' · '+conn.auth+'</span><br>'
+        + '<span class="sap-kv">Host <code>'+conn.host+'</code> · Modules: '+conn.modules.join(', ')+'</span>'
+        + '<div style="color:var(--muted);margin-top:6px;font-size:11.5px">⚠︎ '+conn.note+'</div></div>';
+      const stat = (l, v) => '<div class="ds-stat"><b>'+v+'</b> <span>'+l+'</span></div>';
+      const kpis = '<div class="ds-summary">'
+        + stat('vendors', s.vendors) + stat('open POs', s.open_pos)
+        + stat('open PO value', '$'+s.open_po_value_usd.toLocaleString())
+        + stat('late value', '$'+s.late_po_value_usd.toLocaleString()+' ('+s.late_po_pct+'%)')
+        + stat('vendors <85% OTD', s.vendors_below_85pct_otd)
+        + stat('below safety stock', s.materials_below_safety_stock)
+        + stat('worst vendor', s.worst_vendor) + '</div>';
+      const vrows = d.vendors.map(v => {
+        const cls = v.on_time_rate < 0.7 ? 'risk-hi' : (v.on_time_rate < 0.85 ? 'risk-md' : '');
+        return '<tr class="'+cls+'"><td>'+v.LIFNR+'</td><td>'+v.NAME1+'</td><td>'+v.LAND1+'</td><td>'+(v.on_time_rate*100).toFixed(1)+'</td></tr>';
+      }).join('');
+      const prows = d.purchase_orders.map(p => {
+        const cls = p.delay_days > 10 ? 'risk-hi' : (p.delay_days > 0 ? 'risk-md' : '');
+        return '<tr class="'+cls+'"><td>'+p.EBELN+'</td><td>'+p.LIFNR+'</td><td>'+p.MATNR+'</td><td>'+p.TXZ01+'</td><td>'+p.MENGE+'</td><td>'+p.NETPR+'</td><td>'+p.WERKS+'</td><td>'+p.EINDT+'</td><td>'+p.delay_days+'</td><td>'+p.net_value_usd.toLocaleString()+'</td></tr>';
+      }).join('');
+      $('erp').innerHTML = panel + kpis
+        + '<div style="color:var(--muted);font-size:12px;margin:10px 0 4px">Vendors (LFA1)</div>'
+        + '<div class="ds-wrap"><table class="ds"><tr><th>LIFNR</th><th>NAME1</th><th>LAND1</th><th>OTD%</th></tr>'+vrows+'</table></div>'
+        + '<div style="color:var(--muted);font-size:12px;margin:14px 0 4px">Open Purchase Orders (EKKO/EKPO)</div>'
+        + '<div class="ds-wrap"><table class="ds"><tr><th>EBELN</th><th>LIFNR</th><th>MATNR</th><th>TXZ01</th><th>MENGE</th><th>NETPR</th><th>WERKS</th><th>EINDT</th><th>delay</th><th>value $</th></tr>'+prows+'</table></div>'
+        + '<div class="row"><button id="erpAnalyzeBtn" onclick="analyzeErp()">🤖 Analyze SAP data with the crew</button>'
+        + '<span class="hint">seed '+d.seed+' · Analyst → Strategist read the live SAP extract.</span></div>';
     }
   </script>
 </body>

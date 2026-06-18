@@ -19,8 +19,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.concurrency import run_in_threadpool
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-from .crew import run_crew, run_dataset, TITAN_SUPPLY_CHAIN_CONTEXT, MAX_TOPIC_CHARS
+from .crew import run_crew, run_dataset, run_erp, TITAN_SUPPLY_CHAIN_CONTEXT, MAX_TOPIC_CHARS
 from .dataset import generate_dataset
+from .erp import generate_erp_data, simulate_connection
 from .security import client_ip, constant_time_eq, SlidingWindowLimiter, LoginGuard
 
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "agenticai")
@@ -165,6 +166,43 @@ async def run_dataset_ep(request: Request, seed: int = Form(...), n: int = Form(
     async with _crew_lock:
         try:
             data = await run_in_threadpool(run_dataset, seed, n)
+        except Exception as exc:
+            return JSONResponse(
+                {"ok": False, "error": f"{type(exc).__name__}: {exc}"},
+                status_code=500,
+            )
+    return JSONResponse({"ok": True, "result": data["result"], "backend": data["backend"]})
+
+
+@app.get("/erp/connect")
+async def erp_connect(request: Request):
+    """Simulated SAP connection handshake."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return JSONResponse(simulate_connection())
+
+
+@app.get("/erp/data")
+async def erp_data(request: Request):
+    """Pull a (simulated) SAP S/4HANA supply-chain extract."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return JSONResponse(generate_erp_data())
+
+
+@app.post("/run-erp")
+async def run_erp_ep(request: Request, seed: int = Form(...)):
+    """Analyse the (simulated) SAP extract for `seed` with the analyst crew."""
+    if not _is_authed(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not _run_limiter.check(client_ip(request), time.time()):
+        return JSONResponse(
+            {"ok": False, "error": "Rate limit: too many runs. Wait a few minutes."},
+            status_code=429,
+        )
+    async with _crew_lock:
+        try:
+            data = await run_in_threadpool(run_erp, seed)
         except Exception as exc:
             return JSONResponse(
                 {"ok": False, "error": f"{type(exc).__name__}: {exc}"},

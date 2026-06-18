@@ -5,12 +5,17 @@ open a URL, log in with a shared password, type a topic, and a **CrewAI** two-ag
 team runs **on the server** and returns an "Agentic AI Opportunities" briefing for
 the Titan Manufacturing supply-chain challenge.
 
-Two modes:
+Three modes:
 - **Web-search mode** — Researcher (Serper) → Strategist briefing for a typed topic.
 - **Synthetic-dataset mode** — one click generates a seeded supplier table (numpy,
   `app/dataset.py`) with risk patterns baked in; a Data-Analyst → Strategist crew then
   cites the actual supplier numbers (worst suppliers, single-source/Tier-2 $ exposure,
   spend concentration). Reproducible by seed — ideal for a live demo.
+- **ERP mode (SAP — simulated)** — `app/erp.py` mocks an SAP S/4HANA OData feed with
+  authentic field names (LIFNR, EBELN/EBELP, MATNR, WERKS, MENGE, NETPR, EINDT, LABST).
+  "🔌 Connect to SAP" shows a (clearly simulated) handshake, pulls vendors / open POs /
+  plant stock, and the crew analyses them citing PO numbers, vendor IDs and stockouts.
+  In production, point `SAP_BASE_URL` at a real S/4HANA OData service.
 
 Agents:
 - **Researcher / Data Analyst** — synthesises live web results or the dataset.
