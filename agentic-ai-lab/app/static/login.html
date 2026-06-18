@@ -1,37 +1,22 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en" class="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Agentic AI Lab — Login</title>
-<style>
-  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3; --muted:#8b949e; --accent:#7c9cf5; }
-  * { box-sizing: border-box; }
-  body { margin:0; min-height:100vh; display:grid; place-items:center;
-         background:var(--bg); color:var(--fg);
-         font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-  .card { width:min(92vw,380px); background:var(--card); border:1px solid var(--line);
-          border-radius:14px; padding:32px 28px; box-shadow:0 10px 40px rgba(0,0,0,.4); }
-  h1 { font-size:20px; margin:0 0 6px; }
-  p.sub { color:var(--muted); margin:0 0 22px; font-size:14px; }
-  label { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
-  input { width:100%; padding:11px 13px; border-radius:9px; border:1px solid var(--line);
-          background:#0d1117; color:var(--fg); font-size:15px; }
-  input:focus { outline:none; border-color:var(--accent); }
-  button { width:100%; margin-top:18px; padding:11px; border:0; border-radius:9px;
-           background:var(--accent); color:#0d1117; font-weight:600; font-size:15px; cursor:pointer; }
-  button:hover { filter:brightness(1.08); }
-  .err { color:#f85149; font-size:13px; margin-top:14px; min-height:18px; }
-</style>
+<title>Supply Chain Risk Console — Login</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>body { background:#0a0e16; }</style>
 </head>
-<body>
-  <form class="card" method="post" action="/login">
-    <h1>🤖 Agentic AI Lab</h1>
-    <p class="sub">Supply Chain Crew · Titan Manufacturing</p>
-    <label for="password">Password</label>
-    <input id="password" name="password" type="password" autofocus autocomplete="current-password" />
-    <button type="submit">Log in</button>
-    <div class="err"><!--ERROR--></div>
+<body class="text-slate-200 font-sans min-h-screen grid place-items-center">
+  <form method="post" action="/login" class="w-[min(92vw,380px)] bg-[#111827] border border-[#1f2a3a] rounded-2xl p-8 shadow-2xl">
+    <div class="text-2xl mb-1">🛰️</div>
+    <h1 class="text-lg font-semibold">Supply Chain Risk Console</h1>
+    <p class="text-xs text-slate-500 mb-6">Agentic AI · Titan Manufacturing</p>
+    <label for="password" class="block text-xs text-slate-400 mb-1.5">Password</label>
+    <input id="password" name="password" type="password" autofocus autocomplete="current-password"
+      class="w-full bg-[#0a0e16] border border-[#1f2a3a] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500" />
+    <button type="submit" class="w-full mt-4 bg-indigo-500 hover:brightness-110 text-white font-semibold text-sm rounded-lg py-2.5">Log in</button>
+    <div class="text-red-400 text-xs mt-3 min-h-[16px]"><!--ERROR--></div>
   </form>
 </body>
 </html>

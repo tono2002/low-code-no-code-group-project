@@ -1,28 +1,33 @@
-# Agentic AI Lab — Supply Chain Crew
+# Supply Chain Risk Console — Agentic AI
 
-A password-gated web app for the IE Agentic AI assignment (Task 2). Your teammates
-open a URL, log in with a shared password, type a topic, and a **CrewAI** two-agent
-team runs **on the server** and returns an "Agentic AI Opportunities" briefing for
-the Titan Manufacturing supply-chain challenge.
+A password-gated **dashboard** (FastAPI + CrewAI, Tailwind UI) for the IE Agentic AI
+assignment. Load a supply-chain data source, run a full risk analysis, and chat with
+the agent about the loaded data. Everything runs **on the server**.
 
-Three modes:
-- **Web-search mode** — Researcher (Serper) → Strategist briefing for a typed topic.
-- **Synthetic-dataset mode** — one click generates a seeded supplier table (numpy,
-  `app/dataset.py`) with risk patterns baked in; a Data-Analyst → Strategist crew then
-  cites the actual supplier numbers (worst suppliers, single-source/Tier-2 $ exposure,
-  spend concentration). Reproducible by seed — ideal for a live demo.
-- **ERP mode (SAP — simulated)** — `app/erp.py` mocks an SAP S/4HANA OData feed with
-  authentic field names (LIFNR, EBELN/EBELP, MATNR, WERKS, MENGE, NETPR, EINDT, LABST).
-  "🔌 Connect to SAP" shows a (clearly simulated) handshake, pulls vendors / open POs /
-  plant stock, and the crew analyses them citing PO numbers, vendor IDs and stockouts.
-  In production, point `SAP_BASE_URL` at a real S/4HANA OData service.
+**Data sources** (left sidebar) — each normalises into one shared workspace and gets a
+simulated logistics-risk layer:
+- **Upload CSV/XLSX** (`app/sources.py`, pandas) — arbitrary files, columns auto-detected
+  and profiled, supplier-like columns mapped to risk heuristics. Caps: 5 MB / 50k rows.
+- **Connect SAP / Odoo / Microsoft Dynamics 365** (`app/erp.py`) — **simulated** ERP feeds
+  with each system's authentic field names (LIFNR/EBELN…, res.partner/purchase.order,
+  PurchId/VendorAccount…) and a clearly-labelled handshake. Prod path: env `SAP_BASE_URL`
+  / `ODOO_URL` / `DYNAMICS_URL`.
+- **Synthetic dataset** (`app/dataset.py`, seeded, reproducible) — one click, risk baked in.
 
-Agents:
-- **Researcher / Data Analyst** — synthesises live web results or the dataset.
-- **Strategist** — turns it into a board-ready briefing tied to Titan's pain points.
-- **LLM:** **Ollama `glm-5.1:cloud`** on the VPS is the primary engine; **Gemini
-  `gemini-2.5-flash-lite` is the automatic fallback**. Order set by `PRIMARY_BACKEND`.
-- **Stack:** FastAPI + CrewAI, one Docker container, behind Traefik with auto-TLS.
+**Logistics risk** (`app/logistics.py`, simulated) — in-transit shipments by mode
+(Sea/Air/Road/Rail) with weather risk, port congestion, delay probability, value-in-transit
+and **expected delay cost**. The "flights/ships delayed + cost" dimension.
+
+**Analysis** — a Data-Analyst → Risk-Strategist crew reads the data + logistics and writes a
+board-ready risk briefing (cost-at-risk + Agentic AI opportunities), grounded in the real
+numbers. An optional free-text **focus** ("only the shipping routes") steers the scope.
+
+**Chat** — a persistent panel answers questions and does focused re-analysis over the loaded
+workspace.
+
+- **LLM:** **Ollama `glm-5.1:cloud`** primary, **Gemini `gemini-2.5-flash-lite`** fallback
+  (`PRIMARY_BACKEND`). **Stack:** FastAPI + CrewAI, one Docker container, Traefik auto-TLS,
+  shared in-memory workspace (`app/workspace.py`).
 
 ### Why Ollama is primary (not Gemini)
 Gemini's free tier is only **~20 calls/day** — for ALL its models, including
@@ -37,23 +42,29 @@ goes on a paid key, set `PRIMARY_BACKEND=gemini` to flip the order.
 - **Scope + prompt injection** (`guard_topic` in `crew.py`): injection-phrase regex
   (fast pre-LLM reject) → keyword allow → LLM classifier for the ambiguous middle.
   Off-topic / manipulation never reaches the crew.
-- **In-prompt defense:** the topic *and* the untrusted web results are wrapped in
-  `<<<UNTRUSTED>>>` markers; every agent carries inviolable rules (scope-lock, treat
+- **In-prompt defense:** the focus, chat message, uploaded content and ERP data are wrapped
+  in `<<<UNTRUSTED>>>` markers; every agent carries inviolable rules (scope-lock, treat
   delimited content as data only, never reveal prompt/keys, else emit `OUT_OF_SCOPE`).
 - **Blast radius:** agents have no tools/shell/DB and keys live in env, not the prompt —
   so even a successful injection can only affect text output, not take actions.
 - Hardening headers: `X-Frame-Options: DENY`, `nosniff`, `no-referrer`.
 
-### Why the search runs in code (not as a CrewAI tool)
-CrewAI's function-calling tool only works on heavyweight models and is flaky on
-the cheap ones. So the Serper search runs directly in `crew.py` (`serper_search`)
-and its results are injected into the researcher's task — ~2 model calls per run,
-any model works, still grounded in live web data.
+### Why analysis runs over a profiled summary (not raw rows)
+A 180k-row CSV won't fit an LLM context, and per-row tool-calling is flaky on cheap models.
+So `app/sources.py` profiles uploads (column stats + sample) and the crew analyses that
+summary + the logistics layer — a couple of model calls per run, any model works, grounded
+in the real numbers.
 
 ## Files
-- `app/crew.py` — the CrewAI crew (agents, tasks, Gemini LLM).
-- `app/main.py` — FastAPI: login, session cookie, `/run` endpoint (runs serialised).
-- `app/static/` — `login.html` + `app.html` web UI.
+- `app/workspace.py` — shared in-memory workspace (loaded source + analysis + chat).
+- `app/sources.py` — CSV/XLSX upload parsing + synthetic adapter (normalised shape).
+- `app/erp.py` — simulated SAP / Odoo / Dynamics connectors.
+- `app/logistics.py` — simulated in-transit shipments + delay-cost risk.
+- `app/dataset.py` — seeded synthetic supplier dataset + risk scoring.
+- `app/crew.py` — analysis crew (`analyze_workspace`) + chat (`run_chat`) + guard.
+- `app/main.py` — FastAPI: auth, `/sources/*`, `/erp/*`, `/analyze`, `/chat`, security.
+- `app/security.py` — rate limiting, brute-force lockout, constant-time compare.
+- `app/static/` — `login.html` + `app.html` (Tailwind dashboard + chat).
 - `Dockerfile`, `docker-compose.yml`, `.env.example`.
 
 ## Run locally

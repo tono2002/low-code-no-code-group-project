@@ -1,11 +1,12 @@
 """
-FastAPI web app for the Agentic AI lab.
+FastAPI web app — supply-chain risk console.
 
 - Single shared password gate (env APP_PASSWORD, default "agenticai").
-- One web page where a teammate types a topic and runs the CrewAI supply-chain
-  crew. The crew runs server-side (in this container) and the result is shown.
-- Runs are serialised with a lock so concurrent users don't blow the Gemini
-  free-tier rate limit (10 req/min); a waiting request simply queues.
+- A data source is loaded into a shared in-memory workspace (synthetic dataset,
+  uploaded CSV/XLSX, or a simulated ERP), a simulated logistics-risk layer is
+  attached, the crew runs a full risk analysis, and a persistent chat answers
+  questions / focused re-analyses over the loaded data.
+- Heavy runs are serialised with a lock; all routes are auth-gated + rate-limited.
 """
 
 import asyncio
@@ -13,16 +14,20 @@ import os
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, Form, Request, Response, HTTPException
+from fastapi import FastAPI, Form, Request, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.concurrency import run_in_threadpool
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-from .crew import run_crew, run_dataset, run_erp, TITAN_SUPPLY_CHAIN_CONTEXT, MAX_TOPIC_CHARS
-from .dataset import generate_dataset
-from .erp import generate_erp_data, simulate_connection
+from . import workspace as ws
+from .crew import analyze_workspace, run_chat, MAX_TOPIC_CHARS
+from .sources import synthetic_source, parse_upload
+from .logistics import generate_logistics
+from .erp import generate_erp_data, simulate_connection, SYSTEMS
 from .security import client_ip, constant_time_eq, SlidingWindowLimiter, LoginGuard
+
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "agenticai")
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-insecure-change-me")
@@ -72,11 +77,7 @@ async def health():
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     page = "app.html" if _is_authed(request) else "login.html"
-    html = (STATIC_DIR / page).read_text(encoding="utf-8")
-    if page == "app.html":
-        # Pre-fill the textarea with the Titan scenario.
-        html = html.replace("{{DEFAULT_TOPIC}}", TITAN_SUPPLY_CHAIN_CONTEXT)
-    return HTMLResponse(html)
+    return HTMLResponse((STATIC_DIR / page).read_text(encoding="utf-8"))
 
 
 def _login_error(message: str, status: int):
@@ -117,97 +118,117 @@ async def logout():
     return resp
 
 
-@app.post("/run")
-async def run(request: Request, topic: str = Form("")):
+def _require_auth(request: Request):
     if not _is_authed(request):
         raise HTTPException(status_code=401, detail="Not authenticated")
-    # Per-IP rate limit (abuse / cost protection).
-    if not _run_limiter.check(client_ip(request), time.time()):
-        return JSONResponse(
-            {"ok": False, "error": "Rate limit: too many runs. Wait a few minutes."},
-            status_code=429,
-        )
-    # Hard cap input size before it ever reaches the model.
-    if len(topic) > MAX_TOPIC_CHARS:
-        return JSONResponse(
-            {"ok": False, "error": f"Topic too long (max {MAX_TOPIC_CHARS} chars)."},
-            status_code=413,
-        )
-    # Serialise: only one crew at a time. Queue if another run is in flight.
-    async with _crew_lock:
-        try:
-            data = await run_in_threadpool(run_crew, topic)
-        except Exception as exc:  # surface a readable error to the UI
-            return JSONResponse(
-                {"ok": False, "error": f"{type(exc).__name__}: {exc}"},
-                status_code=500,
-            )
-    return JSONResponse({"ok": True, "result": data["result"], "backend": data["backend"]})
 
 
-@app.get("/dataset")
-async def dataset(request: Request, n: int = 12):
-    """Generate a fresh synthetic supplier dataset (one click)."""
-    if not _is_authed(request):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return JSONResponse(generate_dataset(n=n))
+def _rate_limited(request: Request) -> bool:
+    return not _run_limiter.check(client_ip(request), time.time())
 
 
-@app.post("/run-dataset")
-async def run_dataset_ep(request: Request, seed: int = Form(...), n: int = Form(12)):
-    """Analyse the dataset identified by `seed` with the data-analyst crew."""
-    if not _is_authed(request):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    if not _run_limiter.check(client_ip(request), time.time()):
-        return JSONResponse(
-            {"ok": False, "error": "Rate limit: too many runs. Wait a few minutes."},
-            status_code=429,
-        )
-    async with _crew_lock:
-        try:
-            data = await run_in_threadpool(run_dataset, seed, n)
-        except Exception as exc:
-            return JSONResponse(
-                {"ok": False, "error": f"{type(exc).__name__}: {exc}"},
-                status_code=500,
-            )
-    return JSONResponse({"ok": True, "result": data["result"], "backend": data["backend"]})
+def _public_workspace(w: dict) -> dict:
+    """Trim the workspace to what the UI needs (no heavy LLM text / raw suppliers)."""
+    log = w.get("logistics") or {}
+    return {
+        "loaded": w.get("loaded", False),
+        "source": w.get("source"), "label": w.get("label"), "seed": w.get("seed"),
+        "summary": w.get("summary", {}), "table": w.get("table", {}),
+        "connection": w.get("connection"),
+        "logistics": {"summary": log.get("summary", {}),
+                      "shipments": log.get("shipments", [])} if log else None,
+        "analysis_md": w.get("analysis_md"), "chat": w.get("chat", []),
+    }
+
+
+def _load_source(source: dict) -> dict:
+    """Attach a simulated logistics layer and store as the active workspace."""
+    seed = source.get("seed")
+    source["logistics"] = generate_logistics(seed=seed, suppliers=source.get("suppliers"))
+    ws.set_workspace(source)
+    return _public_workspace(ws.get_workspace())
+
+
+@app.get("/workspace")
+async def workspace_state(request: Request):
+    _require_auth(request)
+    return JSONResponse(_public_workspace(ws.get_workspace()))
+
+
+@app.get("/sources/synthetic")
+async def source_synthetic(request: Request, n: int = 12):
+    _require_auth(request)
+    return JSONResponse(_load_source(synthetic_source(n=n)))
+
+
+@app.post("/sources/upload")
+async def source_upload(request: Request, file: UploadFile = File(...)):
+    _require_auth(request)
+    if _rate_limited(request):
+        return JSONResponse({"ok": False, "error": "Rate limit — wait a few minutes."}, status_code=429)
+    name = (file.filename or "").lower()
+    if not name.endswith((".csv", ".xlsx", ".xlsm")):
+        return JSONResponse({"ok": False, "error": "Only .csv or .xlsx files are accepted."}, status_code=415)
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        return JSONResponse({"ok": False, "error": "File too large (max 5 MB)."}, status_code=413)
+    try:
+        source = await run_in_threadpool(parse_upload, file.filename, content)
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": f"Could not parse file: {exc}"}, status_code=422)
+    return JSONResponse({"ok": True, "workspace": _load_source(source)})
 
 
 @app.get("/erp/connect")
-async def erp_connect(request: Request):
-    """Simulated SAP connection handshake."""
-    if not _is_authed(request):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return JSONResponse(simulate_connection())
+async def erp_connect(request: Request, system: str = "sap"):
+    _require_auth(request)
+    if system not in SYSTEMS:
+        raise HTTPException(status_code=400, detail="Unknown ERP system")
+    return JSONResponse(simulate_connection(system))
 
 
 @app.get("/erp/data")
-async def erp_data(request: Request):
-    """Pull a (simulated) SAP S/4HANA supply-chain extract."""
-    if not _is_authed(request):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return JSONResponse(generate_erp_data())
+async def erp_data(request: Request, system: str = "sap"):
+    _require_auth(request)
+    if system not in SYSTEMS:
+        raise HTTPException(status_code=400, detail="Unknown ERP system")
+    return JSONResponse(_load_source(generate_erp_data(system=system)))
 
 
-@app.post("/run-erp")
-async def run_erp_ep(request: Request, seed: int = Form(...)):
-    """Analyse the (simulated) SAP extract for `seed` with the analyst crew."""
-    if not _is_authed(request):
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    if not _run_limiter.check(client_ip(request), time.time()):
-        return JSONResponse(
-            {"ok": False, "error": "Rate limit: too many runs. Wait a few minutes."},
-            status_code=429,
-        )
+@app.post("/analyze")
+async def analyze(request: Request, focus: str = Form("")):
+    _require_auth(request)
+    if _rate_limited(request):
+        return JSONResponse({"ok": False, "error": "Rate limit — wait a few minutes."}, status_code=429)
+    if not ws.is_loaded():
+        return JSONResponse({"ok": False, "error": "Load a data source first."}, status_code=400)
+    if len(focus) > MAX_TOPIC_CHARS:
+        return JSONResponse({"ok": False, "error": f"Focus too long (max {MAX_TOPIC_CHARS} chars)."}, status_code=413)
     async with _crew_lock:
         try:
-            data = await run_in_threadpool(run_erp, seed)
+            data = await run_in_threadpool(analyze_workspace, ws.get_workspace(), focus)
         except Exception as exc:
-            return JSONResponse(
-                {"ok": False, "error": f"{type(exc).__name__}: {exc}"},
-                status_code=500,
-            )
+            return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
+    if not str(data.get("backend", "")).startswith("guard"):
+        ws.set_analysis(data["result"])
+    return JSONResponse({"ok": True, "result": data["result"], "backend": data["backend"]})
+
+
+@app.post("/chat")
+async def chat(request: Request, message: str = Form(...)):
+    _require_auth(request)
+    if _rate_limited(request):
+        return JSONResponse({"ok": False, "error": "Rate limit — wait a few minutes."}, status_code=429)
+    if not ws.is_loaded():
+        return JSONResponse({"ok": False, "error": "Load a data source first."}, status_code=400)
+    if len(message) > MAX_TOPIC_CHARS:
+        return JSONResponse({"ok": False, "error": f"Message too long (max {MAX_TOPIC_CHARS} chars)."}, status_code=413)
+    ws.append_chat("user", message)
+    try:
+        data = await run_in_threadpool(run_chat, message, ws.get_workspace())
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, status_code=500)
+    ws.append_chat("assistant", data["result"])
     return JSONResponse({"ok": True, "result": data["result"], "backend": data["backend"]})
 
 

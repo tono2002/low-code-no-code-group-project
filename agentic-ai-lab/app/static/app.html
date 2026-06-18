@@ -1,234 +1,273 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en" class="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Agentic AI Lab — Supply Chain Crew</title>
+<title>Supply Chain Risk Console — Agentic AI</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"></script>
+<script>
+  tailwind.config = { darkMode: 'class', theme: { extend: { colors: {
+    ink: '#0a0e16', panel: '#111827', panel2: '#0e1521', line: '#1f2a3a', accent: '#6366f1' } } } };
+</script>
 <style>
-  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3; --muted:#8b949e; --accent:#7c9cf5; --ok:#3fb950; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg);
-         font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; line-height:1.55; }
-  header { display:flex; align-items:center; justify-content:space-between;
-           padding:16px 22px; border-bottom:1px solid var(--line); }
-  header h1 { font-size:17px; margin:0; }
-  header .who { color:var(--muted); font-size:13px; }
-  header a { color:var(--muted); font-size:13px; text-decoration:none; }
-  header a:hover { color:var(--fg); }
-  main { max-width:860px; margin:0 auto; padding:26px 22px 80px; }
-  .pitch { color:var(--muted); font-size:14px; margin:0 0 18px; }
-  label { display:block; font-size:13px; color:var(--muted); margin:0 0 7px; }
-  textarea { width:100%; min-height:150px; resize:vertical; padding:13px 15px;
-             border-radius:10px; border:1px solid var(--line); background:#0d1117;
-             color:var(--fg); font-size:14px; font-family:inherit; }
-  textarea:focus { outline:none; border-color:var(--accent); }
-  .row { display:flex; gap:12px; align-items:center; margin-top:14px; }
-  button { padding:11px 20px; border:0; border-radius:9px; background:var(--accent);
-           color:#0d1117; font-weight:600; font-size:15px; cursor:pointer; }
-  button:disabled { opacity:.55; cursor:not-allowed; }
-  .hint { color:var(--muted); font-size:12.5px; }
-  #status { margin-top:22px; display:none; align-items:center; gap:11px; color:var(--muted); font-size:14px; }
-  .spinner { width:18px; height:18px; border:2.5px solid var(--line);
-             border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  #result { margin-top:26px; display:none; background:var(--card); border:1px solid var(--line);
-            border-radius:12px; padding:6px 24px 18px; }
-  #result h1,#result h2,#result h3 { line-height:1.3; }
-  #result h1 { font-size:21px; border-bottom:1px solid var(--line); padding-bottom:8px; }
-  #result h2 { font-size:17px; margin-top:24px; }
-  #result code { background:#0d1117; padding:2px 5px; border-radius:5px; font-size:13px; }
-  #result pre { background:#0d1117; padding:12px; border-radius:8px; overflow:auto; }
-  #result a { color:var(--accent); }
-  #result table { border-collapse:collapse; width:100%; }
-  #result th,#result td { border:1px solid var(--line); padding:7px 10px; text-align:left; }
-  .err { color:#f85149; font-size:14px; margin-top:18px; white-space:pre-wrap; display:none; }
-  .badge { display:inline-block; background:#1f2937; color:var(--muted); border:1px solid var(--line);
-           border-radius:999px; padding:2px 10px; font-size:12px; margin-right:6px; }
-  button.secondary { background:#1f2937; color:var(--fg); border:1px solid var(--line); }
-  .divider { display:flex; align-items:center; gap:12px; margin:30px 0 18px; color:var(--muted); font-size:12.5px; text-transform:uppercase; letter-spacing:.06em; }
-  .divider::before, .divider::after { content:""; flex:1; height:1px; background:var(--line); }
-  #dataset { margin-top:18px; }
-  .ds-summary { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
-  .ds-stat { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:7px 11px; font-size:12.5px; }
-  .ds-stat b { color:var(--fg); } .ds-stat span { color:var(--muted); }
-  table.ds { border-collapse:collapse; width:100%; font-size:12px; }
-  table.ds th, table.ds td { border:1px solid var(--line); padding:5px 8px; text-align:right; white-space:nowrap; }
-  table.ds th { background:#1f2937; color:var(--muted); position:sticky; top:0; }
-  table.ds td:first-child, table.ds td:nth-child(3), table.ds td:nth-child(4) { text-align:left; }
-  .ds-wrap { max-height:340px; overflow:auto; border-radius:8px; }
-  tr.risk-hi td { background:rgba(248,81,73,.12); }
-  tr.risk-md td { background:rgba(245,200,66,.10); }
-  .sap-conn { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:12px; font-size:12.5px; }
-  .sap-conn .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--ok); margin-right:7px; box-shadow:0 0 0 3px rgba(63,185,80,.18); vertical-align:middle; }
-  .sap-conn code { color:var(--accent); } .sap-kv { color:var(--muted); } .sap-kv b { color:var(--fg); font-weight:600; }
+  body { background: #0a0e16; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #1f2a3a; border-radius: 6px; }
+  .md h1 { font-size: 1.25rem; font-weight: 700; margin: .6rem 0 .4rem; }
+  .md h2 { font-size: 1.05rem; font-weight: 700; margin: .8rem 0 .3rem; color: #c7d2fe; }
+  .md h3 { font-size: .95rem; font-weight: 600; margin: .6rem 0 .2rem; }
+  .md p, .md li { font-size: .85rem; line-height: 1.55; color: #cbd5e1; }
+  .md ul { list-style: disc; padding-left: 1.2rem; margin: .3rem 0; }
+  .md strong { color: #e5e7eb; }
+  .md table { border-collapse: collapse; width: 100%; margin: .5rem 0; font-size: .75rem; }
+  .md th, .md td { border: 1px solid #1f2a3a; padding: 4px 8px; }
+  .md code { background: #0e1521; padding: 1px 5px; border-radius: 4px; font-size: .8rem; }
+  .spin { width: 16px; height: 16px; border: 2.5px solid #1f2a3a; border-top-color: #6366f1; border-radius: 50%; animation: s .8s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
 </style>
 </head>
-<body>
-  <header>
-    <h1>🤖 Agentic AI Lab</h1>
-    <div><span class="who">Supply Chain Crew</span> &nbsp;·&nbsp; <a href="/logout">Log out</a></div>
+<body class="text-slate-200 font-sans">
+<div class="flex flex-col h-screen">
+
+  <!-- Top bar -->
+  <header class="flex items-center justify-between px-5 h-14 border-b border-line bg-panel2 shrink-0">
+    <div class="flex items-center gap-3">
+      <span class="text-lg">🛰️</span>
+      <div>
+        <div class="font-semibold text-sm leading-tight">Supply Chain Risk Console</div>
+        <div class="text-[11px] text-slate-500 leading-tight">Agentic AI · Titan Manufacturing</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 text-xs text-slate-400">
+      <span id="wsStatus" class="px-2.5 py-1 rounded-full bg-panel border border-line">No data loaded</span>
+      <a href="/logout" class="hover:text-slate-200">Log out</a>
+    </div>
   </header>
-  <main>
-    <p class="pitch">
-      <span class="badge">Researcher</span>
-      <span class="badge">+ Web&nbsp;Search</span>
-      <span class="badge">→ Strategist</span>
-      Two AI agents research supply-chain risks and turn them into
-      &ldquo;Agentic AI Opportunities&rdquo; for the Titan case study. Edit the
-      topic below or use the default scenario.
-    </p>
 
-    <label for="topic">Topic / scenario</label>
-    <textarea id="topic">{{DEFAULT_TOPIC}}</textarea>
+  <div class="flex flex-1 min-h-0">
 
-    <div class="row">
-      <button id="runBtn" onclick="runCrew()">Run crew</button>
-      <span class="hint">Takes ~1–2 minutes. Runs server-side in the container.</span>
-    </div>
+    <!-- Sidebar: data sources + analysis -->
+    <aside class="w-72 shrink-0 border-r border-line bg-panel2 overflow-y-auto p-4 space-y-5">
+      <div>
+        <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-2">Data source</div>
+        <input id="fileInput" type="file" accept=".csv,.xlsx,.xlsm" class="hidden" onchange="uploadFile()" />
+        <button onclick="document.getElementById('fileInput').click()" class="src-btn">⬆️ Upload CSV / XLSX</button>
+        <button onclick="connectErp('sap')" class="src-btn">🔌 Connect SAP S/4HANA</button>
+        <button onclick="connectErp('odoo')" class="src-btn">🔌 Connect Odoo</button>
+        <button onclick="connectErp('dynamics')" class="src-btn">🔌 Connect MS Dynamics 365</button>
+        <button onclick="loadSynthetic()" class="src-btn">🎲 Synthetic dataset</button>
+        <p class="text-[10.5px] text-slate-500 mt-2 leading-snug">ERP connections + logistics signals are simulated (clearly labelled). Uploads are auto-profiled.</p>
+      </div>
 
-    <div class="divider">or — demo with a synthetic dataset</div>
+      <div>
+        <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-2">Run analysis</div>
+        <textarea id="focus" rows="3" placeholder="Optional focus, e.g. 'only the shipping routes'. Leave empty for a full risk analysis."
+          class="w-full text-xs bg-ink border border-line rounded-lg p-2.5 focus:outline-none focus:border-accent placeholder:text-slate-600"></textarea>
+        <button id="analyzeBtn" onclick="runAnalysis()" class="mt-2 w-full bg-accent hover:brightness-110 text-white text-sm font-semibold rounded-lg py-2 disabled:opacity-50" disabled>Run risk analysis</button>
+        <div id="analyzeStatus" class="hidden items-center gap-2 text-xs text-slate-400 mt-2"><div class="spin"></div><span>Crew analysing… ~1–2 min</span></div>
+      </div>
+    </aside>
 
-    <div class="row">
-      <button id="genBtn" class="secondary" onclick="genDataset()">🎲 Generate supply-chain dataset</button>
-      <span class="hint">numpy-generated suppliers with risk patterns baked in · reproducible by seed.</span>
-    </div>
-    <div id="dataset"></div>
+    <!-- Main content -->
+    <main id="main" class="flex-1 overflow-y-auto p-5 space-y-5">
+      <div id="empty" class="h-full flex flex-col items-center justify-center text-center text-slate-500">
+        <div class="text-4xl mb-3">📦</div>
+        <div class="text-sm">Load a data source to begin —<br>upload a file, connect an ERP, or generate a synthetic dataset.</div>
+      </div>
+      <div id="content" class="hidden space-y-5"></div>
+    </main>
 
-    <div class="divider">or — connect to an ERP (SAP · simulated)</div>
+    <!-- Chat panel -->
+    <aside class="w-96 shrink-0 border-l border-line bg-panel2 flex flex-col min-h-0">
+      <div class="px-4 h-11 flex items-center border-b border-line text-xs font-semibold text-slate-300 shrink-0">💬 Ask the agent</div>
+      <div id="chatLog" class="flex-1 overflow-y-auto p-3 space-y-3 text-sm"></div>
+      <div class="border-t border-line p-3 shrink-0">
+        <div class="flex gap-2">
+          <input id="chatInput" type="text" placeholder="Ask about the data…" disabled
+            onkeydown="if(event.key==='Enter')sendChat()"
+            class="flex-1 text-xs bg-ink border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-accent disabled:opacity-50" />
+          <button id="chatSend" onclick="sendChat()" disabled class="bg-accent hover:brightness-110 text-white text-xs font-semibold rounded-lg px-3 disabled:opacity-50">Send</button>
+        </div>
+        <div class="text-[10px] text-slate-600 mt-1.5">Q&amp;A + focused re-analysis over the loaded data.</div>
+      </div>
+    </aside>
 
-    <div class="row">
-      <button id="sapBtn" class="secondary" onclick="connectSap()">🔌 Connect to SAP S/4HANA</button>
-      <span class="hint">simulated OData connection · real SAP field names (LIFNR, EBELN, MATNR…).</span>
-    </div>
-    <div id="erp"></div>
+  </div>
+</div>
 
-    <div id="status"><div class="spinner"></div><span id="statusText">Agents are working…</span></div>
-    <div id="err" class="err"></div>
-    <div id="result"></div>
-  </main>
+<style>
+  .src-btn { display:block; width:100%; text-align:left; font-size:.8rem; background:#111827; border:1px solid #1f2a3a; border-radius:.5rem; padding:.5rem .65rem; margin-bottom:.4rem; }
+  .src-btn:hover { border-color:#6366f1; background:#0e1521; }
+  .kpi { background:#111827; border:1px solid #1f2a3a; border-radius:.6rem; padding:.6rem .8rem; }
+  .kpi .v { font-size:1.05rem; font-weight:700; color:#fff; }
+  .kpi .l { font-size:.68rem; color:#94a3b8; }
+  .card { background:#0e1521; border:1px solid #1f2a3a; border-radius:.7rem; }
+  table.dt { border-collapse:collapse; width:100%; font-size:.72rem; white-space:nowrap; }
+  table.dt th { background:#111827; color:#94a3b8; text-align:right; padding:5px 8px; position:sticky; top:0; }
+  table.dt td { border-top:1px solid #1f2a3a; padding:4px 8px; text-align:right; }
+  table.dt td:first-child, table.dt th:first-child { text-align:left; }
+  tr.hi td { background:rgba(248,81,73,.12); } tr.md2 td { background:rgba(245,200,66,.10); }
+</style>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script>
-    const $ = id => document.getElementById(id);
-    let currentSeed = null;
-    let currentErpSeed = null;
+<script>
+  const $ = id => document.getElementById(id);
+  let WS = null, busy = false;
+  const fmt = n => (typeof n === 'number') ? n.toLocaleString(undefined, {maximumFractionDigits:0}) : n;
+  const md = s => DOMPurify.sanitize(marked.parse(s || ''));
 
-    function setBusy(b, label) {
-      ['runBtn','genBtn','sapBtn','analyzeBtn','erpAnalyzeBtn'].forEach(id => {
-        const el = $(id); if (el) el.disabled = b;
-      });
-      $('statusText').textContent = label || 'Agents are working…';
-      $('status').style.display = b ? 'flex' : 'none';
+  async function api(url, opts) {
+    const r = await fetch(url, opts);
+    let d = {}; try { d = await r.json(); } catch(e){}
+    if (!r.ok && !d.error && !d.loaded) d.error = 'HTTP ' + r.status;
+    return d;
+  }
+  function setBusy(b, which) {
+    busy = b;
+    $('analyzeBtn').disabled = b || !WS?.loaded;
+    $('analyzeStatus').classList.toggle('hidden', !(b && which==='analyze'));
+    $('analyzeStatus').classList.toggle('flex', b && which==='analyze');
+    document.querySelectorAll('.src-btn').forEach(x => x.disabled = b);
+  }
+
+  // ---- data source loaders ----
+  async function loadSynthetic() { await withLoad(() => api('/sources/synthetic')); }
+  async function connectErp(sys) {
+    await withLoad(async () => {
+      await api('/erp/connect?system=' + sys);   // handshake (shown via connection panel)
+      return api('/erp/data?system=' + sys);
+    });
+  }
+  async function uploadFile() {
+    const f = $('fileInput').files[0]; if (!f) return;
+    await withLoad(async () => {
+      const fd = new FormData(); fd.append('file', f);
+      const d = await api('/sources/upload', { method:'POST', body: fd });
+      $('fileInput').value = '';
+      if (d.error) throw new Error(d.error);
+      return d.workspace;
+    });
+  }
+  async function withLoad(fn) {
+    if (busy) return; setBusy(true, 'load');
+    try {
+      const w = await fn();
+      if (w && w.error) { alert(w.error); return; }
+      WS = w && w.loaded ? w : (w && w.workspace) || w;
+      if (WS && !WS.loaded && WS.source) WS.loaded = true;
+      renderWorkspace();
+    } catch (e) { alert(e.message); }
+    finally { setBusy(false); }
+  }
+
+  // ---- analysis ----
+  async function runAnalysis() {
+    if (busy || !WS?.loaded) return; setBusy(true, 'analyze');
+    try {
+      const fd = new FormData(); fd.append('focus', $('focus').value || '');
+      const d = await api('/analyze', { method:'POST', body: fd });
+      if (d.ok) { WS.analysis_md = d.result; WS.backend = d.backend; renderAnalysis(); }
+      else alert(d.error || 'Analysis failed');
+    } finally { setBusy(false); }
+  }
+
+  // ---- chat ----
+  async function sendChat() {
+    const inp = $('chatInput'); const msg = inp.value.trim();
+    if (!msg || !WS?.loaded || inp.disabled) return;
+    inp.value = '';
+    pushChat('user', msg);
+    const typing = pushChat('assistant', '…');
+    $('chatInput').disabled = true; $('chatSend').disabled = true;
+    try {
+      const fd = new FormData(); fd.append('message', msg);
+      const d = await api('/chat', { method:'POST', body: fd });
+      typing.querySelector('.bubble').innerHTML = d.ok ? md(d.result) : ('⚠️ ' + (d.error || 'error'));
+    } catch (e) { typing.querySelector('.bubble').textContent = '⚠️ ' + e.message; }
+    finally { $('chatInput').disabled = false; $('chatSend').disabled = false; $('chatInput').focus(); $('chatLog').scrollTop = 1e9; }
+  }
+  function pushChat(role, text) {
+    const wrap = document.createElement('div');
+    wrap.className = 'flex ' + (role==='user' ? 'justify-end' : 'justify-start');
+    wrap.innerHTML = '<div class="bubble max-w-[85%] rounded-xl px-3 py-2 ' +
+      (role==='user' ? 'bg-accent text-white' : 'bg-panel border border-line text-slate-200 md') + '">' +
+      (role==='user' ? text.replace(/</g,'&lt;') : md(text)) + '</div>';
+    $('chatLog').appendChild(wrap); $('chatLog').scrollTop = 1e9;
+    return wrap;
+  }
+
+  // ---- rendering ----
+  function renderWorkspace() {
+    if (!WS || !WS.loaded) return;
+    $('empty').classList.add('hidden'); $('content').classList.remove('hidden');
+    $('wsStatus').textContent = WS.label || 'Loaded';
+    $('analyzeBtn').disabled = false;
+    $('chatInput').disabled = false; $('chatSend').disabled = false;
+    const c = $('content'); c.innerHTML = '';
+
+    if (WS.connection) c.appendChild(el(connectionPanel(WS.connection)));
+    c.appendChild(el(kpiRow()));
+    c.appendChild(el(tableCard('Loaded data — ' + (WS.label||''), WS.table, /risk|delay/i)));
+    if (WS.logistics) c.appendChild(el(logisticsCard(WS.logistics)));
+    const a = document.createElement('div'); a.id = 'analysisCard'; c.appendChild(a);
+    renderAnalysis();
+    // restore chat (shared workspace)
+    $('chatLog').innerHTML = ''; (WS.chat||[]).forEach(m => pushChat(m.role, m.content));
+  }
+  function el(html) { const d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
+
+  function connectionPanel(cn) {
+    return `<div class="card p-3 text-xs">
+      <div class="flex items-center gap-2 mb-1"><span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,.2)]"></span>
+      <b class="text-slate-100">Connected · ${cn.label}</b></div>
+      <div class="text-slate-400">System <b class="text-slate-200">${cn.system_id}</b> · ${cn.client} · ${cn.protocol} · ${cn.auth}</div>
+      <div class="text-slate-400">Host <code class="text-accent">${cn.host}</code> · ${cn.modules.join(', ')}</div>
+      <div class="text-amber-500/80 mt-1">⚠︎ ${cn.note}</div></div>`;
+  }
+  function kpiRow() {
+    const items = [];
+    for (const [k,v] of Object.entries(WS.summary||{})) items.push([k.replace(/_/g,' '), fmt(v)]);
+    const ls = WS.logistics?.summary;
+    if (ls) {
+      items.push(['in-transit $', fmt(ls.value_in_transit_usd)]);
+      items.push(['expected delay cost $', fmt(ls.expected_delay_cost_usd)]);
+      items.push(['high-risk shipments', ls.high_risk_shipments]);
     }
-    function showError(msg) { $('err').textContent = msg; $('err').style.display = 'block'; }
-    function showResult(data) {
-      const body = (window.marked ? marked.parse(data.result) : '<pre>'+data.result+'</pre>');
-      const tag = data.backend ? '<div style="color:var(--muted);font-size:12.5px;margin:2px 0 14px">⚙︎ Engine: '+data.backend+'</div>' : '';
-      $('result').innerHTML = tag + body; $('result').style.display = 'block';
-    }
+    return '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">' +
+      items.map(([l,v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('') + '</div>';
+  }
+  function tableCard(title, table, riskRe) {
+    if (!table || !table.columns) return '<div></div>';
+    const ci = table.columns.findIndex(c => riskRe.test(String(c)));
+    const head = '<tr>' + table.columns.map(c => `<th>${c}</th>`).join('') + '</tr>';
+    const rows = (table.rows||[]).map(r => {
+      let cls = '';
+      if (ci >= 0) { const v = parseFloat(r[ci]); if (v >= 55 || (table.columns[ci].toLowerCase().includes('delay') && v > 10)) cls='hi'; else if (v >= 38 || v > 0 && table.columns[ci].toLowerCase().includes('delay')) cls='md2'; }
+      return `<tr class="${cls}">` + r.map(x => `<td>${x===''?'—':x}</td>`).join('') + '</tr>';
+    }).join('');
+    return `<div class="card overflow-hidden"><div class="px-3 py-2 text-xs font-semibold text-slate-300 border-b border-line">${title}</div>
+      <div class="overflow-auto max-h-72"><table class="dt">${head}${rows}</table></div></div>`;
+  }
+  function logisticsCard(log) {
+    const s = log.summary;
+    const head = '<tr><th>Shipment</th><th>Mode</th><th>Carrier</th><th>Lane</th><th>ETA d</th><th>DelayProb</th><th>Value $</th><th>Delay cost $</th></tr>';
+    const rows = (log.shipments||[]).map(s => {
+      const cls = s.delay_probability >= 0.5 ? 'hi' : (s.delay_probability >= 0.3 ? 'md2' : '');
+      return `<tr class="${cls}"><td>${s.shipment_id}</td><td>${s.mode}</td><td>${s.carrier}</td><td>${s.origin}→${s.destination}</td><td>${s.eta_days}</td><td>${s.delay_probability}</td><td>${fmt(s.value_in_transit_usd)}</td><td>${fmt(s.expected_delay_cost_usd)}</td></tr>`;
+    }).join('');
+    return `<div class="card overflow-hidden"><div class="px-3 py-2 text-xs font-semibold text-slate-300 border-b border-line flex justify-between">
+      <span>🚚 Logistics risk — simulated in-transit shipments</span><span class="text-slate-500 font-normal">worst lane: ${s.worst_lane}</span></div>
+      <div class="overflow-auto max-h-72"><table class="dt">${head}${rows}</table></div></div>`;
+  }
+  function renderAnalysis() {
+    const a = $('analysisCard'); if (!a) return;
+    if (!WS.analysis_md) { a.innerHTML = `<div class="card p-4 text-sm text-slate-500">No analysis yet — click <b class="text-slate-300">Run risk analysis</b> in the sidebar.</div>`; return; }
+    a.innerHTML = `<div class="card p-4"><div class="text-[11px] text-slate-500 mb-2">⚙︎ ${WS.backend || 'analysis'}</div><div class="md">${md(WS.analysis_md)}</div></div>`;
+  }
 
-    async function postRun(url, params, label) {
-      $('result').style.display = 'none'; $('err').style.display = 'none';
-      setBusy(true, label);
-      try {
-        const res = await fetch(url, { method:'POST', body:new URLSearchParams(params) });
-        const data = await res.json();
-        if (data.ok) showResult(data); else showError('Error: ' + (data.error || 'unknown'));
-      } catch (e) { showError('Network error: ' + e.message); }
-      finally { setBusy(false); }
-    }
-
-    function runCrew() { postRun('/run', { topic: $('topic').value }, 'Researching & writing…'); }
-    function analyzeDataset() {
-      if (currentSeed == null) return;
-      postRun('/run-dataset', { seed: currentSeed, n: 12 }, 'Analyst is reading the data…');
-    }
-
-    async function genDataset() {
-      $('err').style.display = 'none';
-      setBusy(true, 'Generating dataset…');
-      try {
-        const res = await fetch('/dataset?n=12');
-        const ds = await res.json();
-        currentSeed = ds.seed;
-        renderDataset(ds);
-      } catch (e) { showError('Network error: ' + e.message); }
-      finally { setBusy(false); }
-    }
-
-    function renderDataset(ds) {
-      const s = ds.summary;
-      const stat = (label, val) => '<div class="ds-stat"><b>'+val+'</b> <span>'+label+'</span></div>';
-      const summary = '<div class="ds-summary">'
-        + stat('suppliers', s.suppliers)
-        + stat('total spend', '$'+s.total_annual_spend_musd+'M')
-        + stat('avg on-time', s.avg_on_time_pct+'%')
-        + stat('Tier-2', s.tier2_count)
-        + stat('single-sourced', s.single_source_count)
-        + stat('spend at risk', '$'+s.at_risk_spend_musd+'M')
-        + stat('top risk', s.top_risk_supplier)
-        + '</div>';
-      const head = '<tr><th>Supplier</th><th>Tier</th><th>Region</th><th>Component</th>'
-        + '<th>On-time%</th><th>Lead d</th><th>Lead CoV</th><th>Spend $M</th><th>Single</th><th>Risk</th></tr>';
-      const rows = ds.suppliers.map(x => {
-        const cls = x.risk_score >= 55 ? 'risk-hi' : (x.risk_score >= 38 ? 'risk-md' : '');
-        return '<tr class="'+cls+'"><td>'+x.supplier+'</td><td>T'+x.tier+'</td><td>'+x.region+'</td>'
-          + '<td>'+x.component+'</td><td>'+(x.on_time_rate*100).toFixed(1)+'</td><td>'+x.avg_lead_time_days+'</td>'
-          + '<td>'+x.lead_time_cov+'</td><td>'+x.annual_spend_musd+'</td>'
-          + '<td>'+(x.single_source?'YES':'no')+'</td><td>'+x.risk_score+'</td></tr>';
-      }).join('');
-      $('dataset').innerHTML = summary
-        + '<div class="ds-wrap"><table class="ds">'+head+rows+'</table></div>'
-        + '<div class="row"><button id="analyzeBtn" onclick="analyzeDataset()">🤖 Analyze this dataset with the crew</button>'
-        + '<span class="hint">seed '+ds.seed+' · the Data Analyst → Strategist crew reads these numbers.</span></div>';
-    }
-
-    async function connectSap() {
-      $('err').style.display = 'none'; setBusy(true, 'Connecting to SAP S/4HANA…');
-      try {
-        const conn = await (await fetch('/erp/connect')).json();
-        const d = await (await fetch('/erp/data')).json();
-        currentErpSeed = d.seed;
-        renderErp(conn, d);
-      } catch (e) { showError('Network error: ' + e.message); }
-      finally { setBusy(false); }
-    }
-    function analyzeErp() {
-      if (currentErpSeed == null) return;
-      postRun('/run-erp', { seed: currentErpSeed }, 'Analyst is reading the SAP extract…');
-    }
-
-    function renderErp(conn, d) {
-      const s = d.summary;
-      const panel = '<div class="sap-conn"><span class="dot"></span><b>Connected</b> &nbsp;'
-        + '<span class="sap-kv">System <b>'+conn.system_id+'</b> · Client <b>'+conn.client+'</b> · '
-        + conn.protocol+' · '+conn.auth+'</span><br>'
-        + '<span class="sap-kv">Host <code>'+conn.host+'</code> · Modules: '+conn.modules.join(', ')+'</span>'
-        + '<div style="color:var(--muted);margin-top:6px;font-size:11.5px">⚠︎ '+conn.note+'</div></div>';
-      const stat = (l, v) => '<div class="ds-stat"><b>'+v+'</b> <span>'+l+'</span></div>';
-      const kpis = '<div class="ds-summary">'
-        + stat('vendors', s.vendors) + stat('open POs', s.open_pos)
-        + stat('open PO value', '$'+s.open_po_value_usd.toLocaleString())
-        + stat('late value', '$'+s.late_po_value_usd.toLocaleString()+' ('+s.late_po_pct+'%)')
-        + stat('vendors <85% OTD', s.vendors_below_85pct_otd)
-        + stat('below safety stock', s.materials_below_safety_stock)
-        + stat('worst vendor', s.worst_vendor) + '</div>';
-      const vrows = d.vendors.map(v => {
-        const cls = v.on_time_rate < 0.7 ? 'risk-hi' : (v.on_time_rate < 0.85 ? 'risk-md' : '');
-        return '<tr class="'+cls+'"><td>'+v.LIFNR+'</td><td>'+v.NAME1+'</td><td>'+v.LAND1+'</td><td>'+(v.on_time_rate*100).toFixed(1)+'</td></tr>';
-      }).join('');
-      const prows = d.purchase_orders.map(p => {
-        const cls = p.delay_days > 10 ? 'risk-hi' : (p.delay_days > 0 ? 'risk-md' : '');
-        return '<tr class="'+cls+'"><td>'+p.EBELN+'</td><td>'+p.LIFNR+'</td><td>'+p.MATNR+'</td><td>'+p.TXZ01+'</td><td>'+p.MENGE+'</td><td>'+p.NETPR+'</td><td>'+p.WERKS+'</td><td>'+p.EINDT+'</td><td>'+p.delay_days+'</td><td>'+p.net_value_usd.toLocaleString()+'</td></tr>';
-      }).join('');
-      $('erp').innerHTML = panel + kpis
-        + '<div style="color:var(--muted);font-size:12px;margin:10px 0 4px">Vendors (LFA1)</div>'
-        + '<div class="ds-wrap"><table class="ds"><tr><th>LIFNR</th><th>NAME1</th><th>LAND1</th><th>OTD%</th></tr>'+vrows+'</table></div>'
-        + '<div style="color:var(--muted);font-size:12px;margin:14px 0 4px">Open Purchase Orders (EKKO/EKPO)</div>'
-        + '<div class="ds-wrap"><table class="ds"><tr><th>EBELN</th><th>LIFNR</th><th>MATNR</th><th>TXZ01</th><th>MENGE</th><th>NETPR</th><th>WERKS</th><th>EINDT</th><th>delay</th><th>value $</th></tr>'+prows+'</table></div>'
-        + '<div class="row"><button id="erpAnalyzeBtn" onclick="analyzeErp()">🤖 Analyze SAP data with the crew</button>'
-        + '<span class="hint">seed '+d.seed+' · Analyst → Strategist read the live SAP extract.</span></div>';
-    }
-  </script>
+  // hydrate from any existing shared workspace on load
+  (async () => { const w = await api('/workspace'); if (w && w.loaded) { WS = w; renderWorkspace(); } })();
+</script>
 </body>
 </html>
